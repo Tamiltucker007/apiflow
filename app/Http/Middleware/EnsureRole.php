@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureRole
 {
     /**
-     * Usage: ->middleware('role:super_admin,merchant_admin')
+     * Usage: ->middleware('role:merchant_admin')
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {

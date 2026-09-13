@@ -59,10 +59,6 @@ class LoginController extends Controller
 
     protected function redirectPathFor($user): string
     {
-        if ($user->isSuperAdmin()) {
-            return route('admin.dashboard');
-        }
-
         return route('merchants.dashboard', ['merchant' => $user->merchant_id]);
     }
 }

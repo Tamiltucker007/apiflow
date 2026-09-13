@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 // Static "create" segment must be registered before the {customer} wildcard below.
 Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
 
-Route::middleware('role:'.UserRole::SuperAdmin->value.','.UserRole::MerchantAdmin->value)->group(function () {
+Route::middleware('role:'.UserRole::MerchantAdmin->value)->group(function () {
     Route::get('customers/create', [CustomerController::class, 'create'])->name('customers.create');
     Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
 

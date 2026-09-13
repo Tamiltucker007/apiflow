@@ -13,10 +13,6 @@ class MerchantScope implements Scope
     {
         $context = app(MerchantContext::class);
 
-        if ($context->bypassesScoping()) {
-            return;
-        }
-
         if ($context->merchantId() !== null) {
             $builder->where($model->getTable().'.merchant_id', $context->merchantId());
         }

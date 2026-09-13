@@ -2,7 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Plan;
+use App\Observers\PlanObserver;
 use App\Services\MerchantContext;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -22,6 +27,23 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Plan::observe(PlanObserver::class);
+
+        // 120 req/min per API credential (not per IP). Keyed off the raw
+        // header rather than the apiCredential request attribute: Laravel's
+        // internal middleware priority list runs ThrottleRequests before
+        // custom aliases like auth.apikey regardless of route-declared
+        // order, so the attribute isn't set yet when this closure runs.
+        RateLimiter::for('api-credential', function (Request $request) {
+            $apiKey = $request->bearerToken() ?? $request->header('X-API-Key');
+            $key = $apiKey ? hash('sha256', $apiKey) : $request->ip();
+
+            return Limit::perMinute(120)->by($key)->response(function (Request $request, array $headers) {
+                return response()->json([
+                    'error' => 'Rate limit exceeded',
+                    'retry_after' => $headers['Retry-After'] ?? null,
+                ], 429, $headers);
+            });
+        });
     }
 }

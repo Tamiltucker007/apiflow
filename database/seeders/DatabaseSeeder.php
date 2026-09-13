@@ -10,7 +10,6 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            SuperAdminSeeder::class,
             MerchantSeeder::class,
             MerchantUserSeeder::class,
         ]);
@@ -18,7 +17,6 @@ class DatabaseSeeder extends Seeder
         $this->command->table(
             ['Role', 'Email', 'Password'],
             [
-                ['Super Admin', 'admin@apiflow.com', 'password'],
                 ['Merchant Admin (FinPay)', 'admin@finpay.com', 'password'],
                 ['Merchant Staff (FinPay)', 'staff@finpay.com', 'password'],
             ]

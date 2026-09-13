@@ -57,9 +57,4 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Merchant::class);
     }
-
-    public function isSuperAdmin(): bool
-    {
-        return $this->role->isSuperAdmin();
-    }
 }

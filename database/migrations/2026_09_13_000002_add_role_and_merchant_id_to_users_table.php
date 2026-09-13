@@ -14,14 +14,13 @@ return new class extends Migration
             $table->string('role')
                 ->default(UserRole::MerchantStaff->value)
                 ->after('password')
-                ->comment('super_admin = platform owner (all merchants) | merchant_admin = manages own merchant | merchant_staff = read-only + limited write within own merchant');
+                ->comment('merchant_admin = manages own merchant | merchant_staff = read-only + limited write within own merchant');
 
             $table->foreignId('merchant_id')
-                ->nullable()
                 ->after('role')
                 ->constrained('merchants')
-                ->nullOnDelete()
-                ->comment('Tenant this user belongs to; null for super_admin');
+                ->cascadeOnDelete()
+                ->comment('Tenant this user belongs to — every user belongs to exactly one merchant');
 
             $table->boolean('is_active')
                 ->default(true)

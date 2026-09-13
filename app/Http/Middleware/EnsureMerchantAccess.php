@@ -20,13 +20,11 @@ class EnsureMerchantAccess
             ? $merchantParam
             : Merchant::findOrFail($merchantParam);
 
-        if ($user->isSuperAdmin()) {
-            app(MerchantContext::class)->bypassScoping();
-        } elseif ($user->merchant_id !== $merchant->id) {
+        if ($user->merchant_id !== $merchant->id) {
             abort(403, 'You do not have access to this merchant.');
-        } else {
-            app(MerchantContext::class)->set($merchant);
         }
+
+        app(MerchantContext::class)->set($merchant);
 
         $request->route()->setParameter('merchant', $merchant);
 
