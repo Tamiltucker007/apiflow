@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserRole;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -21,6 +22,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'merchant_id',
+        'is_active',
     ];
 
     /**
@@ -43,6 +47,19 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => UserRole::class,
+            'is_active' => 'boolean',
         ];
+    }
+
+    // Relationships
+    public function merchant()
+    {
+        return $this->belongsTo(Merchant::class);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role->isSuperAdmin();
     }
 }

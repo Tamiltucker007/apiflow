@@ -2,22 +2,26 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
+    // Order matters: MerchantUserSeeder looks up the merchant MerchantSeeder creates.
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $this->call([
+            SuperAdminSeeder::class,
+            MerchantSeeder::class,
+            MerchantUserSeeder::class,
         ]);
+
+        $this->command->table(
+            ['Role', 'Email', 'Password'],
+            [
+                ['Super Admin', 'admin@apiflow.com', 'password'],
+                ['Merchant Admin (FinPay)', 'admin@finpay.com', 'password'],
+                ['Merchant Staff (FinPay)', 'staff@finpay.com', 'password'],
+            ]
+        );
     }
 }
