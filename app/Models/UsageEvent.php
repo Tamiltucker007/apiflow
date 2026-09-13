@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use App\Traits\BelongsToMerchant;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class UsageEvent extends Model
 {
-    use BelongsToMerchant;
+    use BelongsToMerchant, HasFactory;
 
     const UPDATED_AT = null;
 

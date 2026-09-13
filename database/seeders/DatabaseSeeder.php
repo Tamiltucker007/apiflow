@@ -6,12 +6,18 @@ use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    // Order matters: MerchantUserSeeder looks up the merchant MerchantSeeder creates.
+    // Order matters: each seeder depends on records the previous one created.
     public function run(): void
     {
         $this->call([
             MerchantSeeder::class,
             MerchantUserSeeder::class,
+            PlanSeeder::class,
+            CustomerSeeder::class,
+            SubscriptionSeeder::class,
+            ApiCredentialSeeder::class,
+            UsageEventSeeder::class,
+            InvoiceSeeder::class,
         ]);
 
         $this->command->table(
