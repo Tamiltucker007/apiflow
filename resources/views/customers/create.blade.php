@@ -3,9 +3,7 @@
 
     <div class="bg-white rounded-lg shadow p-6 max-w-lg">
         @if ($errors->any())
-            <div class="mb-4 rounded bg-red-50 text-red-700 text-sm px-3 py-2">
-                {{ $errors->first() }}
-            </div>
+            <x-alert class="mb-4">{{ $errors->first() }}</x-alert>
         @endif
 
         <form method="POST" action="{{ route('merchants.customers.store', $merchant) }}" class="space-y-4">

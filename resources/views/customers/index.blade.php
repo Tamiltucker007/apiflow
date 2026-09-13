@@ -17,8 +17,12 @@
             </thead>
             <tbody class="divide-y">
                 @forelse ($customers as $customer)
-                    <tr>
-                        <td class="px-4 py-3 font-medium">{{ $customer->name }}</td>
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 font-medium">
+                            <a href="{{ route('merchants.customers.show', [$merchant, $customer]) }}" class="text-indigo-600 hover:underline">
+                                {{ $customer->name }}
+                            </a>
+                        </td>
                         <td class="px-4 py-3">{{ $customer->email }}</td>
                         <td class="px-4 py-3 text-gray-500">{{ $customer->external_id ?? '—' }}</td>
                         <td class="px-4 py-3 text-gray-500">{{ $customer->created_at->format('d M Y') }}</td>

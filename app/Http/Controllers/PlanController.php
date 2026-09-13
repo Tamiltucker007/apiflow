@@ -6,11 +6,14 @@ use App\Http\Requests\StorePlanRequest;
 use App\Models\Merchant;
 use App\Models\Plan;
 use App\Services\PlanService;
+use App\Traits\VerifiesTenantOwnership;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class PlanController extends Controller
 {
+    use VerifiesTenantOwnership;
+
     public function __construct(private PlanService $plans) {}
 
     public function index(Merchant $merchant): View
@@ -36,9 +39,7 @@ class PlanController extends Controller
 
     public function toggle(Merchant $merchant, Plan $plan): RedirectResponse
     {
-        // {plan} binds before merchant.access middleware runs, so the tenant
-        // scope can't protect this route — check ownership explicitly.
-        abort_unless($plan->merchant_id === $merchant->id, 404);
+        $this->ensureBelongsToMerchant($plan, $merchant);
 
         $this->plans->toggleActive($plan);
 

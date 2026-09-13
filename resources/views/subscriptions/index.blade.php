@@ -5,9 +5,7 @@
         <h2 class="text-sm font-medium text-gray-700 mb-4">Subscribe a customer to a plan</h2>
 
         @if ($errors->any())
-            <div class="mb-4 rounded bg-red-50 text-red-700 text-sm px-3 py-2">
-                {{ $errors->first() }}
-            </div>
+            <x-alert class="mb-4">{{ $errors->first() }}</x-alert>
         @endif
 
         <form method="POST" action="{{ route('merchants.subscriptions.store', $merchant) }}" class="flex flex-wrap items-end gap-4">
