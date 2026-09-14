@@ -20,7 +20,14 @@ class CustomerSeeder extends Seeder
             ['name' => 'Nova Traders', 'email' => 'billing@novatraders.test'],
             ['name' => 'QuickMart', 'email' => 'billing@quickmart.test'],
         ] as $data) {
-            $customers->create($finpay, $data);
+            $customer = $customers->create($finpay, $data);
+
+            // Gives the demo a ready-made customer-portal login without
+            // scripting the "admin issues a password" flow first — only
+            // the first customer needs one for a walkthrough.
+            if ($data['email'] === 'billing@abcforex.test') {
+                $customer->update(['password' => 'password']);
+            }
         }
     }
 }

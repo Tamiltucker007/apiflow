@@ -48,9 +48,16 @@ class UserController extends Controller
                 $toggleUrl = route('merchants.users.toggle', [$merchant, $user]);
                 $toggleLabel = $user->is_active ? 'Deactivate' : 'Activate';
 
+                // Only deactivating needs a confirmation — reactivating is
+                // harmless and reversible with the same click.
+                $toggleConfirm = $user->is_active
+                    ? ' data-confirm="'.e("Deactivate {$user->name}? They won't be able to log in again until reactivated.").'"'
+                        .' data-confirm-title="Deactivate User" data-confirm-variant="warning" data-confirm-action="Deactivate"'
+                    : '';
+
                 return '<div class="flex items-center justify-end gap-1">'
                     .'<a href="'.$editUrl.'" class="action-link action-edit">Edit</a>'
-                    .'<form method="POST" action="'.$toggleUrl.'">'.csrf_field().method_field('PUT')
+                    .'<form method="POST" action="'.$toggleUrl.'"'.$toggleConfirm.'>'.csrf_field().method_field('PUT')
                     .'<button class="action-link'.($user->is_active ? ' action-danger' : '').'">'.$toggleLabel.'</button></form>'
                     .'</div>';
             })

@@ -53,9 +53,17 @@ class InvoiceController extends Controller
     {
         $this->ensureBelongsToMerchant($invoice, $merchant);
 
+        $invoice->load('items', 'customer', 'subscription');
+
+        $planChange = $invoice->subscription->planChanges()
+            ->whereBetween('effective_date', [$invoice->period_start, $invoice->period_end])
+            ->with('oldPlan', 'newPlan')
+            ->first();
+
         return view('invoices.show', [
             'merchant' => $merchant,
-            'invoice' => $invoice->load('items', 'customer', 'subscription'),
+            'invoice' => $invoice,
+            'planChange' => $planChange,
         ]);
     }
 

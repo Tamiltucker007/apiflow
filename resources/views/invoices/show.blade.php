@@ -16,6 +16,14 @@
         </div>
     </div>
 
+    @if ($planChange)
+        <div class="mb-6 rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-800">
+            <span class="font-medium">Plan changed mid-cycle</span> on {{ $planChange->effective_date->format('d M Y') }}:
+            <strong>{{ $planChange->oldPlan->name }}</strong> &rarr; <strong>{{ $planChange->newPlan->name }}</strong>.
+            Usage before this date is billed at the old plan's rate, usage after at the new plan's rate — see the two segments below.
+        </div>
+    @endif
+
     <div class="bg-white rounded-lg shadow overflow-hidden mb-6">
         <table class="w-full text-sm text-left">
             <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
@@ -27,8 +35,9 @@
                 </tr>
             </thead>
             <tbody class="divide-y">
+                @php($shadedPlanId = $planChange?->old_plan_id)
                 @foreach ($invoice->items as $item)
-                    <tr>
+                    <tr @class(['bg-indigo-50/40' => $planChange && $item->plan_id === $shadedPlanId])>
                         <td class="px-4 py-3 font-medium">{{ $item->description }}</td>
                         <td class="px-4 py-3 text-gray-500 capitalize">{{ str_replace('_', ' ', $item->type->value) }}</td>
                         <td class="px-4 py-3 text-gray-500">

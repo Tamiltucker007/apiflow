@@ -4,10 +4,13 @@ namespace App\Models;
 
 use App\Traits\BelongsToMerchant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 
-class Customer extends Model
+// Extends Authenticatable (not plain Model) so a Customer can log into the
+// self-service portal via the "customer" guard, separate from App\Models\User
+// (merchant-side dashboard logins) — see config/auth.php and routes/portal.php.
+class Customer extends Authenticatable
 {
     use BelongsToMerchant, HasFactory, SoftDeletes;
 
@@ -16,12 +19,19 @@ class Customer extends Model
         'name',
         'email',
         'phone',
+        'password',
         'metadata',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
     ];
 
     protected function casts(): array
     {
         return [
+            'password' => 'hashed',
             'metadata' => 'array',
         ];
     }
@@ -35,6 +45,11 @@ class Customer extends Model
     public function apiCredentials()
     {
         return $this->hasMany(ApiCredential::class);
+    }
+
+    public function invoices()
+    {
+        return $this->hasMany(Invoice::class);
     }
 
     public function activeSubscription()

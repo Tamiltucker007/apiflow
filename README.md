@@ -60,6 +60,8 @@ External rate lookup    Idempotent insert (event_key unique per merchant)
 
 **Roles:** `merchant_admin` (runs the business — plans, customers, subscriptions, billing) and `merchant_staff` (read-only). There is no platform-wide super-admin — see [Assumptions](#assumptions-made) for why.
 
+**Customer portal (self-service login):** a merchant's own customers can now log in too, separately from `merchant_admin`/`merchant_staff`. This runs on its own `customer` Auth guard/provider (`App\Models\Customer` is `Authenticatable`) and its own route group at `/portal/*` (`routes/portal.php`) — deliberately *not* nested under `merchants/{merchant}`, since a logged-in customer's `merchant_id` comes from their own session, never a route parameter a caller could tamper with. A merchant admin issues (or resets) a customer's portal password from the customer's show page — plaintext shown once, only the hash stored, same pattern as API key generation — since no mail transport is assumed configured for this exercise; a real deployment would email an invite/reset link instead. The portal itself is read-only: current-cycle usage vs. plan allowance, overage units, and invoice history with PDF download, every query scoped to `customer_id = auth('customer')->id()`.
+
 ## Tech Stack
 
 - **Laravel 12**, PHP 8.2+
@@ -142,7 +144,7 @@ php artisan billing:generate-invoices
 - **1 API request = 1 usage unit.**
 - **Currency defaults to INR**; each plan carries its own currency code.
 - **Rate limit: 120 requests/minute per API credential** (not per IP).
-- **No public customer self-registration.** Customers are registered by the merchant's own admin from the dashboard. A self-service registration flow was actually built and tested, then deliberately removed: the brief frames customers as the merchant's own client base (not people who sign themselves up on the platform), and the brief explicitly says to skip "consumer portals."
+- **No public customer self-registration**, even though customers can now log in (see [Customer Portal](#architecture-overview) above). Customers are still only ever created by the merchant's own admin from the dashboard; a merchant admin then separately issues that customer a portal password. Self-service sign-up (a customer creating their own account with no merchant involved) is out of scope — the brief frames customers as the merchant's own client base, not people who sign themselves up on the platform. The portal itself was added afterward as a read-only, admin-provisioned add-on beyond the brief's 8 core requirements, not a replacement for that boundary.
 - **No platform-wide super-admin role.** An earlier version of this app had a `super_admin` role with its own tenant-management CRUD (create/suspend merchants), modeled after a typical SaaS platform-owner layer. It was removed after re-reading the brief: the assignment's scope is a *single merchant's* billing/usage system, not a platform admin tool for onboarding multiple tenants — that layer was scope the take-home never asked for. `MerchantSeeder` creates the one demo tenant instead.
 - **A customer has at most one active subscription at a time.** Changing plans mid-cycle updates the existing subscription (recorded in `subscription_plan_changes`) rather than creating a second, parallel one.
 
@@ -169,7 +171,7 @@ php artisan billing:generate-invoices
 php artisan test
 ```
 
-Tests run against an in-memory SQLite database (configured in `phpunit.xml`), so `php artisan test` never touches — or wipes — the real MySQL dev database. 40 tests, all passing:
+Tests run against an in-memory SQLite database (configured in `phpunit.xml`), so `php artisan test` never touches — or wipes — the real MySQL dev database. 49 tests, all passing:
 
 | File | Covers |
 |---|---|
@@ -183,6 +185,7 @@ Tests run against an in-memory SQLite database (configured in `phpunit.xml`), so
 | `Feature/AggregateUsageJobTest` | Chunked aggregation: correct sums, safe to rerun, multiple merchants in one pass, overlap-locked against concurrent runs |
 | `Feature/DashboardTest` | Dashboard renders correct usage totals; cross-tenant access is blocked; unauthenticated access redirects to login |
 | `Feature/AuthAndAccessTest` | Login success/failure/deactivated-account cases; `merchant_staff` blocked from write routes; cross-tenant plan mutation blocked even with a valid route-bound model |
+| `Feature/Portal/CustomerPortalTest` | Customer portal login (correct/wrong/no-password cases), unauthenticated visitors land on `/portal/login` not the merchant login, dashboard shows the right customer's own usage, a customer cannot open another customer's invoice by id, and the full admin-issues-password → customer-logs-in flow |
 
 Stripe isn't covered since it isn't part of this build (see [Trade-offs](#trade-offs-under-time-pressure)).
 
@@ -192,8 +195,9 @@ Stripe isn't covered since it isn't part of this build (see [Trade-offs](#trade-
 |---|---|---|
 | Merchant Admin (FinPay) | admin@finpay.com | password |
 | Merchant Staff (FinPay) | staff@finpay.com | password |
+| Customer Portal (ABC Forex Pvt Ltd, at `/portal/login`) | billing@abcforex.test | password |
 
-Seeded customer API keys are printed to the console once, during `php artisan db:seed` (via `ApiCredentialSeeder`) — they're SHA-256-hashed in the database and cannot be retrieved again afterward, so re-seed if you need a fresh set.
+Seeded customer API keys are printed to the console once, during `php artisan db:seed` (via `ApiCredentialSeeder`) — they're SHA-256-hashed in the database and cannot be retrieved again afterward, so re-seed if you need a fresh set. The other seeded customers have no portal password until a merchant admin issues one from their customer page (`Enable Portal Access`) — only ABC Forex gets one automatically, so the demo has a ready login without scripting that step first.
 
 ## API Endpoints
 
@@ -206,7 +210,9 @@ All API routes require `Authorization: Bearer <api_key>` (or `X-API-Key: <api_ke
 | GET | `/api/v1/invoices` | Lists the authenticated customer's own invoices |
 | GET | `/api/v1/invoices/{invoice}/download` | Downloads that invoice as a PDF |
 
-**Invoice PDFs, both sides:** a `merchant_admin`/`merchant_staff` can download any of their merchant's invoices from the dashboard (`/merchants/{merchant}/invoices/{invoice}/download`); a customer's own app can list and download its invoices via the API routes above, using the same API key as every other endpoint — customers have no dashboard login (see [Assumptions](#assumptions-made)), so this is their only path to an invoice PDF. Both routes render through the same `InvoicePdfService`/`invoices/pdf.blade.php` (dompdf), so the document is identical either side; the API route checks `invoice->customer_id` against the authenticated key's own customer before rendering, since (like the dashboard's route-bound models) `{invoice}` resolves before tenant context is set.
+**Invoice PDFs, three ways:** a `merchant_admin`/`merchant_staff` can download any of their merchant's invoices from the dashboard (`/merchants/{merchant}/invoices/{invoice}/download`); a customer's own app can list and download its invoices via the API routes above, using its API key; and the customer themselves can download the same PDF from `/portal/invoices/{invoice}/download` after logging in. All three render through the same `InvoicePdfService`/`invoices/pdf.blade.php` (dompdf), so the document is identical everywhere; both the API route and the portal route check `invoice->customer_id` against the authenticated caller's own customer before rendering, since (like the dashboard's route-bound models) `{invoice}` resolves before tenant/customer context is set.
+
+**Customer portal** (`/portal/*`, guard `customer`, distinct from the merchant-side `web` guard): `GET /portal/login`, `POST /portal/login`, `POST /portal/logout`, `GET /portal/dashboard` (own plan, current-cycle usage vs. allowance, overage units, invoice list), `GET /portal/invoices/{invoice}` and `.../download`. No `merchants/{merchant}` prefix — a customer's tenant is implicit from who they are, not a URL segment.
 
 Dashboard routes are session-authenticated and merchant-scoped under `/merchants/{merchant}/...`: `dashboard`, `plans`, `customers`, `subscriptions`, `invoices` (each with the create/edit/toggle actions a `merchant_admin` needs; `merchant_staff` gets read-only views). Subscriptions also expose **Change Plan** (records the mid-cycle change and switches the subscription immediately) and **Generate Invoice** (bills the current period on demand, splitting it into per-plan segments if it contains a plan change). Invoices stay read-only for both roles — they're the record of what was actually billed, not something either role should be able to edit or delete after the fact.
 

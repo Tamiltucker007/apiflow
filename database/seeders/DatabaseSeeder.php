@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             [
                 ['Merchant Admin (FinPay)', 'admin@finpay.com', 'password'],
                 ['Merchant Staff (FinPay)', 'staff@finpay.com', 'password'],
+                ['Customer Portal (ABC Forex, /portal/login)', 'billing@abcforex.test', 'password'],
             ]
         );
     }

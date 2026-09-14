@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Middleware\AuthenticateApiKey;
+use App\Http\Middleware\AuthenticateCustomer;
 use App\Http\Middleware\EnsureMerchantAccess;
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\RedirectIfCustomerAuthenticated;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -20,6 +22,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => EnsureRole::class,
             'merchant.access' => EnsureMerchantAccess::class,
             'auth.apikey' => AuthenticateApiKey::class,
+            'auth.customer' => AuthenticateCustomer::class,
+            'guest.customer' => RedirectIfCustomerAuthenticated::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

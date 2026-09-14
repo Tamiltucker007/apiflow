@@ -21,6 +21,11 @@ Route::middleware('role:'.UserRole::MerchantAdmin->value)->group(function () {
 
     Route::post('customers/{customer}/api-keys', [ApiCredentialController::class, 'store'])->name('customers.api-keys.store');
     Route::delete('customers/{customer}/api-keys/{credential}', [ApiCredentialController::class, 'destroy'])->name('customers.api-keys.destroy');
+
+    Route::post('customers/{customer}/portal-password', [CustomerController::class, 'generatePortalPassword'])->name('customers.portal-password.store');
+
+    // Demo/dev only — see CustomerController::simulateUsage().
+    Route::post('customers/{customer}/simulate-usage', [CustomerController::class, 'simulateUsage'])->name('customers.simulate-usage');
 });
 
 Route::get('customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');

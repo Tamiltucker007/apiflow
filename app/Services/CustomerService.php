@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\Merchant;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class CustomerService
@@ -44,5 +45,21 @@ class CustomerService
         }
 
         $customer->delete();
+    }
+
+    /**
+     * Issues (or replaces) this customer's self-service portal password.
+     * Same pattern as ApiCredentialService::generateKey() — only the hash
+     * is ever stored, the plaintext is returned once for the caller to
+     * flash to the admin, who is expected to relay it to the customer
+     * out of band (no mail transport is assumed to be configured here).
+     */
+    public function generatePortalPassword(Customer $customer): string
+    {
+        $password = Str::password(12, symbols: false);
+
+        $customer->update(['password' => $password]);
+
+        return $password;
     }
 }

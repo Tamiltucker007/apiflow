@@ -8,6 +8,16 @@
             <h1 class="text-xl font-semibold">{{ $customer->name }}</h1>
             <p class="text-sm text-gray-500">{{ $customer->email }}</p>
         </div>
+
+        @if ($canManageKeys && ! app()->isProduction())
+            <form method="POST" action="{{ route('merchants.customers.simulate-usage', [$merchant, $customer]) }}">
+                @csrf
+                <button type="submit" class="bg-white border border-gray-300 text-gray-700 text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
+                    title="Backfills a week of usage and re-runs aggregation immediately — for demoing the usage-to-billing flow without a real API client">
+                    Simulate Usage (demo)
+                </button>
+            </form>
+        @endif
     </div>
 
     @if (session('newApiKey'))
@@ -18,6 +28,44 @@
             <code class="block bg-white border border-amber-200 rounded px-3 py-2 text-sm text-gray-800 break-all select-all">{{ session('newApiKey') }}</code>
         </div>
     @endif
+
+    @if (session('newPortalPassword'))
+        <div class="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4">
+            <p class="text-sm font-medium text-amber-800 mb-2">
+                New portal password generated — copy it and share it with the customer now, it won't be shown again.
+            </p>
+            <code class="block bg-white border border-amber-200 rounded px-3 py-2 text-sm text-gray-800 break-all select-all">{{ session('newPortalPassword') }}</code>
+            <p class="text-xs text-amber-700 mt-2">They can log in at <span class="font-mono">{{ route('portal.login') }}</span> with {{ $customer->email }}.</p>
+        </div>
+    @endif
+
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="flex items-center justify-between mb-1">
+            <div>
+                <h2 class="text-sm font-semibold text-gray-700">Customer Portal Access</h2>
+                <p class="text-xs text-gray-500 mt-1">
+                    Lets {{ $customer->name }} log in and see their own usage and invoices.
+                    Status:
+                    <span class="{{ $customer->password ? 'text-green-600' : 'text-gray-400' }} font-medium">
+                        {{ $customer->password ? 'Portal access enabled' : 'No password set' }}
+                    </span>
+                </p>
+            </div>
+
+            @if ($canManageKeys)
+                <form method="POST" action="{{ route('merchants.customers.portal-password.store', [$merchant, $customer]) }}"
+                    @if ($customer->password)
+                        data-confirm="This replaces {{ $customer->name }}'s current portal password — they will need the new one to log in."
+                        data-confirm-title="Reset Portal Password" data-confirm-variant="warning" data-confirm-action="Reset Password"
+                    @endif>
+                    @csrf
+                    <button type="submit" class="bg-white border border-gray-300 text-gray-700 text-sm px-3 py-2 rounded-lg hover:bg-gray-50">
+                        {{ $customer->password ? 'Reset Portal Password' : 'Enable Portal Access' }}
+                    </button>
+                </form>
+            @endif
+        </div>
+    </div>
 
     <div class="bg-white rounded-lg shadow p-6">
         <div class="flex items-center justify-between mb-4">
@@ -64,7 +112,8 @@
                             <td class="px-4 py-3 text-right">
                                 @if ($key->is_active)
                                     <form method="POST" action="{{ route('merchants.customers.api-keys.destroy', [$merchant, $customer, $key]) }}"
-                                        onsubmit="return confirm('Revoke this key? Any application using it will stop working immediately.')">
+                                        data-confirm="Revoke this key? Any application using it will stop working immediately."
+                                        data-confirm-title="Revoke API Key" data-confirm-variant="danger" data-confirm-action="Revoke">
                                         @csrf
                                         @method('DELETE')
                                         <button class="text-red-600 hover:underline text-xs">Revoke</button>

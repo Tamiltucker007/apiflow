@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\UsageEvent;
+use Carbon\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class UsageService
@@ -44,5 +46,46 @@ class UsageService
             ->firstOrFail();
 
         return ['event' => $event, 'created' => $insertedCount > 0];
+    }
+
+    /**
+     * Demo/dev helper: backfills $days of random-but-realistic usage for a
+     * customer via the same recordUsage() path the API uses, so the
+     * dashboard and billing math have real data to show without needing an
+     * external client to hit POST /usage repeatedly. Never runs in
+     * production — see CustomerController::simulateUsage().
+     *
+     * @return array{days: int, total_units: int}
+     */
+    public function simulateUsage(Customer $customer, int $days = 7): array
+    {
+        $subscription = $customer->activeSubscription;
+
+        if (! $subscription) {
+            throw ValidationException::withMessages([
+                'customer' => 'This customer has no active subscription.',
+            ]);
+        }
+
+        $today = Carbon::today();
+        $totalUnits = 0;
+        $daysGenerated = 0;
+
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $date = $today->copy()->subDays($i);
+
+            if ($date->lt($subscription->current_period_start)) {
+                continue;
+            }
+
+            $units = random_int(20, 200);
+
+            $this->recordUsage($customer, (string) Str::uuid(), $units, $date->toDateString());
+
+            $totalUnits += $units;
+            $daysGenerated++;
+        }
+
+        return ['days' => $daysGenerated, 'total_units' => $totalUnits];
     }
 }

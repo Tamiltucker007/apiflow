@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Route;
 // explicitly instead (see RedirectIfAuthenticated::redirectUsing()).
 Route::redirect('/', '/login');
 
+require __DIR__.'/portal.php';
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
     Route::post('/login', [LoginController::class, 'store'])->name('login.store');

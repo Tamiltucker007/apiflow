@@ -66,13 +66,20 @@ class SubscriptionController extends Controller
 
                 $options = $plans->map(fn (Plan $plan) => '<option value="'.$plan->id.'"'.($plan->id === $s->plan_id ? ' selected' : '').'>'.e($plan->name).'</option>')->implode('');
 
+                $changeConfirmTemplate = e("Change {$s->customer_name}'s plan to {value}? Usage before today stays billed at the old plan's rate, usage after at the new plan's rate.");
+                $cancelConfirm = e("Cancel {$s->customer_name}'s subscription immediately? They will stop being metered right away — this cannot be undone.");
+
                 return '<div class="flex items-center justify-end gap-3">'
                     .'<form method="POST" action="'.$invoiceUrl.'">'.csrf_field()
                     .'<button class="action-link">Generate Invoice</button></form>'
-                    .'<form method="POST" action="'.$changeUrl.'" class="flex items-center gap-1">'.csrf_field().method_field('PUT')
+                    .'<form method="POST" action="'.$changeUrl.'" class="flex items-center gap-1"'
+                        .' data-confirm-template="'.$changeConfirmTemplate.'"'
+                        .' data-confirm-title="Change Plan" data-confirm-action="Change Plan">'.csrf_field().method_field('PUT')
                     .'<select name="plan_id" class="rounded border-gray-300 text-xs py-1 focus:border-indigo-500 focus:ring-indigo-500">'.$options.'</select>'
                     .'<button class="action-link action-edit">Change</button></form>'
-                    .'<form method="POST" action="'.$cancelUrl.'" onsubmit="return confirm(\'Cancel this subscription?\')">'.csrf_field().method_field('DELETE')
+                    .'<form method="POST" action="'.$cancelUrl.'"'
+                        .' data-confirm="'.$cancelConfirm.'"'
+                        .' data-confirm-title="Cancel Subscription" data-confirm-variant="danger" data-confirm-action="Cancel Subscription">'.csrf_field().method_field('DELETE')
                     .'<button class="action-link action-danger">Cancel</button></form>'
                     .'</div>';
             })

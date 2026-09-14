@@ -49,11 +49,20 @@ class PlanController extends Controller
                 $destroyUrl = route('merchants.plans.destroy', [$merchant, $plan]);
                 $toggleLabel = $plan->is_active ? 'Deactivate' : 'Activate';
 
+                // Only deactivating needs a confirmation — reactivating is
+                // harmless and reversible with the same click.
+                $toggleConfirm = $plan->is_active
+                    ? ' data-confirm="'.e("Deactivate {$plan->name}? New customers won't be able to subscribe to it — existing subscribers are unaffected.").'"'
+                        .' data-confirm-title="Deactivate Plan" data-confirm-variant="warning" data-confirm-action="Deactivate"'
+                    : '';
+
                 return '<div class="flex items-center justify-end gap-1">'
                     .'<a href="'.$editUrl.'" class="action-link action-edit">Edit</a>'
-                    .'<form method="POST" action="'.$toggleUrl.'">'.csrf_field().method_field('PUT')
+                    .'<form method="POST" action="'.$toggleUrl.'"'.$toggleConfirm.'>'.csrf_field().method_field('PUT')
                     .'<button class="action-link">'.$toggleLabel.'</button></form>'
-                    .'<form method="POST" action="'.$destroyUrl.'" onsubmit="return confirm(\'Delete this plan? This cannot be undone.\')">'.csrf_field().method_field('DELETE')
+                    .'<form method="POST" action="'.$destroyUrl.'"'
+                        .' data-confirm="'.e("Delete {$plan->name}? This cannot be undone.").'"'
+                        .' data-confirm-title="Delete Plan" data-confirm-variant="danger" data-confirm-action="Delete">'.csrf_field().method_field('DELETE')
                     .'<button class="action-link action-danger">Delete</button></form>'
                     .'</div>';
             })
