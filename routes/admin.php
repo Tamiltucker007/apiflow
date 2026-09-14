@@ -24,14 +24,10 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::prefix('merchants/{merchant}')->middleware('merchant.access')->group(function () {
             Route::get('/dashboard', [DashboardController::class, 'merchant'])->name('dashboard');
-            Route::get('plans', [PlanController::class, 'index'])->name('plans.index');
+
             Route::get('plans/data', [PlanController::class, 'data'])->name('plans.data');
-            Route::get('plans/create', [PlanController::class, 'create'])->name('plans.create');
-            Route::post('plans', [PlanController::class, 'store'])->name('plans.store');
-            Route::get('plans/{plan}/edit', [PlanController::class, 'edit'])->name('plans.edit');
-            Route::put('plans/{plan}', [PlanController::class, 'update'])->name('plans.update');
             Route::put('plans/{plan}/toggle', [PlanController::class, 'toggle'])->name('plans.toggle');
-            Route::delete('plans/{plan}', [PlanController::class, 'destroy'])->name('plans.destroy');
+            Route::resource('plans', PlanController::class)->except('show');
 
             Route::get('subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
             Route::get('subscriptions/data', [SubscriptionController::class, 'data'])->name('subscriptions.data');
@@ -45,16 +41,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
             Route::get('invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
 
-            require __DIR__.'/customers.php';
+            require __DIR__.'/admin-customers.php';
 
             // Team management — who can log in, not business data.
-            Route::get('users', [UserController::class, 'index'])->name('users.index');
             Route::get('users/data', [UserController::class, 'data'])->name('users.data');
-            Route::get('users/create', [UserController::class, 'create'])->name('users.create');
-            Route::post('users', [UserController::class, 'store'])->name('users.store');
-            Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-            Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
             Route::put('users/{user}/toggle', [UserController::class, 'toggle'])->name('users.toggle');
+            Route::resource('users', UserController::class)->except(['show', 'destroy']);
         });
     });
 });

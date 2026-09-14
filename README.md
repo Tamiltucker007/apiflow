@@ -78,7 +78,7 @@ External rate lookup    Idempotent insert (event_key unique per merchant)
 | Guard | `web` (`App\Models\User`) | `customer` (`App\Models\Customer`) |
 | URL space | `/admin/...` | `/` (unprefixed) |
 | Route names | `admin.*` | unprefixed (`login`, `dashboard`, `plans.choose`, …) |
-| Route file | `routes/admin.php` | `routes/customer.php` |
+| Route file | `routes/admin.php` (+ `routes/admin-customers.php`) | `routes/customer-portal.php` |
 | Login | `/admin/login` | `/login` |
 
 Each guard has its own auth-flow middleware (`AuthenticateAdmin`/`RedirectIfAdminAuthenticated`, `AuthenticateCustomer`/`RedirectIfCustomerAuthenticated`) instead of Laravel's built-in `auth`/`guest` aliases, which hardcode a redirect to `route('login')` regardless of guard — that breaks the moment two login systems both need their own target. `/` redirects to `/login`, `/admin` redirects to `/admin/login`.
@@ -242,14 +242,18 @@ All API routes require `Authorization: Bearer <api_key>` (or `X-API-Key: <api_ke
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/v1/exchange-rate?from=USD&to=INR` | Demo currency conversion; records 1 usage unit |
-| POST | `/api/v1/usage` | Records a usage event (`event_key`, `units`, `recorded_date`); idempotent |
+| GET | `/api/v1/exchange-rate?from=USD&to=INR` | **FinPay only.** Real conversion via open.er-api.com; records 1 usage unit |
+| GET | `/api/v1/geocode?address=Bengaluru` | **GeoLocate Pro only.** Real lookup via OpenStreetMap Nominatim; records 1 usage unit |
+| GET | `/api/v1/weather?lat=12.97&lon=77.59` | **WeatherCloud only.** Real current conditions via Open-Meteo; records 1 usage unit |
+| POST | `/api/v1/usage` | Records a usage event (`event_key`, `units`, `recorded_date`); idempotent — every merchant's customers use this one |
 | GET | `/api/v1/invoices` | Lists the authenticated customer's own invoices |
 | GET | `/api/v1/invoices/{invoice}/download` | Downloads that invoice as a PDF |
 
+The first three are each gated to one merchant (`$customer->merchant->slug` check, before the external call) — a customer of another merchant gets 403. Each calls a real, keyless, free external service. Covered by `MerchantBusinessEndpointTest`.
+
 **Invoice PDFs, three ways:** merchant dashboard (`/admin/merchants/{merchant}/invoices/{invoice}/download`), the API routes above (own key), or the customer portal (`/invoices/{invoice}/download`) — all three render through the same `InvoicePdfService`, and both non-admin routes check `invoice->customer_id` against the caller before rendering.
 
-**Customer routes** (`routes/customer.php`, guard `customer`, no URL prefix): `/login`, `/logout`, `/dashboard`, `/plans/choose`, `/invoices/{invoice}` (+ `/download`), `/register`, `/register/{merchant:slug}`.
+**Customer routes** (`routes/customer-portal.php`, guard `customer`, no URL prefix): `/login`, `/logout`, `/dashboard`, `/plans/choose`, `/invoices/{invoice}` (+ `/download`), `/register`, `/register/{merchant:slug}`.
 
 **Admin routes** (`routes/admin.php`, guard `web`, prefix `/admin` + name prefix `admin.`): `/admin/login`, `/admin/logout`, then everything merchant-scoped under `/admin/merchants/{merchant}/...` — `dashboard`, `plans`, `customers`, `subscriptions`, `invoices`, `users` (Team).
 
