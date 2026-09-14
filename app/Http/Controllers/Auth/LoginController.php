@@ -54,11 +54,11 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('login');
+        return redirect()->route('admin.login');
     }
 
     protected function redirectPathFor($user): string
     {
-        return route('merchants.dashboard', ['merchant' => $user->merchant_id]);
+        return route('admin.dashboard', ['merchant' => $user->merchant_id]);
     }
 }

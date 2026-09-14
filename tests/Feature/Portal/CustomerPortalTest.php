@@ -25,9 +25,9 @@ class CustomerPortalTest extends TestCase
             'password' => bcrypt('correct-password'),
         ]);
 
-        $response = $this->post('/portal/login', ['email' => $customer->email, 'password' => 'correct-password']);
+        $response = $this->post('/login', ['email' => $customer->email, 'password' => 'correct-password']);
 
-        $response->assertRedirect(route('portal.dashboard'));
+        $response->assertRedirect(route('dashboard'));
         $this->assertAuthenticatedAs($customer, 'customer');
     }
 
@@ -37,7 +37,7 @@ class CustomerPortalTest extends TestCase
             'password' => bcrypt('correct-password'),
         ]);
 
-        $response = $this->post('/portal/login', ['email' => $customer->email, 'password' => 'wrong-password']);
+        $response = $this->post('/login', ['email' => $customer->email, 'password' => 'wrong-password']);
 
         $response->assertSessionHasErrors('email');
         $this->assertGuest('customer');
@@ -47,7 +47,7 @@ class CustomerPortalTest extends TestCase
     {
         $customer = Customer::factory()->for(Merchant::factory())->create(['password' => null]);
 
-        $response = $this->post('/portal/login', ['email' => $customer->email, 'password' => 'anything']);
+        $response = $this->post('/login', ['email' => $customer->email, 'password' => 'anything']);
 
         $response->assertSessionHasErrors('email');
         $this->assertGuest('customer');
@@ -55,9 +55,9 @@ class CustomerPortalTest extends TestCase
 
     public function test_an_unauthenticated_visitor_is_redirected_to_the_portal_login_not_the_merchant_login(): void
     {
-        $response = $this->get('/portal/dashboard');
+        $response = $this->get('/dashboard');
 
-        $response->assertRedirect(route('portal.login'));
+        $response->assertRedirect(route('login'));
     }
 
     public function test_a_customer_can_view_their_own_invoice(): void
@@ -73,7 +73,7 @@ class CustomerPortalTest extends TestCase
         ]);
         $invoice = app(BillingService::class)->generateInvoice($subscription);
 
-        $response = $this->actingAs($customer, 'customer')->get(route('portal.invoices.show', $invoice));
+        $response = $this->actingAs($customer, 'customer')->get(route('invoices.show', $invoice));
 
         $response->assertOk();
         $response->assertSee($invoice->invoice_number);
@@ -95,7 +95,7 @@ class CustomerPortalTest extends TestCase
 
         $otherCustomer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
 
-        $response = $this->actingAs($otherCustomer, 'customer')->get(route('portal.invoices.show', $invoice));
+        $response = $this->actingAs($otherCustomer, 'customer')->get(route('invoices.show', $invoice));
 
         $response->assertNotFound();
     }
@@ -123,7 +123,7 @@ class CustomerPortalTest extends TestCase
             'total_units' => 400,
         ]);
 
-        $response = $this->actingAs($customer, 'customer')->get(route('portal.dashboard'));
+        $response = $this->actingAs($customer, 'customer')->get(route('dashboard'));
 
         $response->assertOk();
         $response->assertSee('Growth');
@@ -137,16 +137,16 @@ class CustomerPortalTest extends TestCase
         $customer = Customer::factory()->for($merchant)->create(['password' => null]);
 
         $response = $this->actingAs($admin)
-            ->post(route('merchants.customers.portal-password.store', [$merchant, $customer]));
+            ->post(route('admin.customers.portal-password.store', [$merchant, $customer]));
 
-        $response->assertRedirect(route('merchants.customers.show', [$merchant, $customer]));
+        $response->assertRedirect(route('admin.customers.show', [$merchant, $customer]));
         $plaintextPassword = $response->getSession()->get('newPortalPassword');
         $this->assertNotEmpty($plaintextPassword);
 
         Auth::guard('customer')->logout();
-        $loginResponse = $this->post('/portal/login', ['email' => $customer->email, 'password' => $plaintextPassword]);
+        $loginResponse = $this->post('/login', ['email' => $customer->email, 'password' => $plaintextPassword]);
 
-        $loginResponse->assertRedirect(route('portal.dashboard'));
+        $loginResponse->assertRedirect(route('dashboard'));
         $this->assertAuthenticatedAs($customer->fresh(), 'customer');
     }
 
@@ -156,7 +156,7 @@ class CustomerPortalTest extends TestCase
         $admin = User::factory()->for($merchant)->create(['role' => UserRole::MerchantAdmin]);
         $customer = Customer::factory()->for($merchant)->create(['password' => null]);
 
-        $response = $this->actingAs($admin)->get(route('merchants.customers.show', [$merchant, $customer]));
+        $response = $this->actingAs($admin)->get(route('admin.customers.show', [$merchant, $customer]));
 
         $response->assertOk();
         $response->assertSee('No password set');

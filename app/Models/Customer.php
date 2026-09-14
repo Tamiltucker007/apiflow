@@ -9,7 +9,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 
 // Extends Authenticatable (not plain Model) so a Customer can log into the
 // self-service portal via the "customer" guard, separate from App\Models\User
-// (merchant-side dashboard logins) — see config/auth.php and routes/portal.php.
+// (merchant-side dashboard logins) — see config/auth.php and routes/customer.php.
 class Customer extends Authenticatable
 {
     use BelongsToMerchant, HasFactory, SoftDeletes;

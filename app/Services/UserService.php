@@ -16,7 +16,7 @@ class UserService
             'merchant_id' => $merchant->id,
             'name' => $data['name'],
             'email' => $data['email'],
-            'role' => $data['role'],
+            'role' => UserRole::MerchantAdmin,
             'password' => Hash::make($data['password']),
             'is_active' => true,
         ]);
@@ -24,14 +24,9 @@ class UserService
 
     public function update(User $user, array $data): User
     {
-        if ($user->role === UserRole::MerchantAdmin && $data['role'] !== UserRole::MerchantAdmin->value) {
-            $this->guardLastActiveAdmin($user);
-        }
-
         $user->update([
             'name' => $data['name'],
             'email' => $data['email'],
-            'role' => $data['role'],
         ]);
 
         if (! empty($data['password'])) {
@@ -43,8 +38,8 @@ class UserService
 
     /**
      * Toggles is_active. Refuses to deactivate yourself (avoids locking
-     * yourself out) or the merchant's last active admin (avoids leaving the
-     * merchant with no one able to manage it).
+     * yourself out) or the merchant's last active user (avoids leaving the
+     * merchant with no one able to log in and manage it).
      */
     public function toggleActive(User $user, User $actingUser): User
     {
@@ -55,9 +50,7 @@ class UserService
                 ]);
             }
 
-            if ($user->role === UserRole::MerchantAdmin) {
-                $this->guardLastActiveAdmin($user);
-            }
+            $this->guardLastActiveUser($user);
         }
 
         $user->update(['is_active' => ! $user->is_active]);
@@ -65,17 +58,16 @@ class UserService
         return $user;
     }
 
-    private function guardLastActiveAdmin(User $user): void
+    private function guardLastActiveUser(User $user): void
     {
-        $otherActiveAdmins = User::where('merchant_id', $user->merchant_id)
-            ->where('role', UserRole::MerchantAdmin)
+        $otherActiveUsers = User::where('merchant_id', $user->merchant_id)
             ->where('is_active', true)
             ->where('id', '!=', $user->id)
             ->exists();
 
-        if (! $otherActiveAdmins) {
+        if (! $otherActiveUsers) {
             throw ValidationException::withMessages([
-                'user' => 'This is the only active admin for this merchant — promote or activate another admin first.',
+                'user' => 'This is the only active user for this merchant — activate another user first.',
             ]);
         }
     }

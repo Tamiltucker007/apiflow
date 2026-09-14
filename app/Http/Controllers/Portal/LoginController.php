@@ -35,7 +35,7 @@ class LoginController extends Controller
         RateLimiter::clear($request->throttleKey());
         $request->session()->regenerate();
 
-        return redirect()->intended(route('portal.dashboard'));
+        return redirect()->intended(route('dashboard'));
     }
 
     public function destroy(Request $request): RedirectResponse
@@ -45,6 +45,6 @@ class LoginController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('portal.login');
+        return redirect()->route('login');
     }
 }

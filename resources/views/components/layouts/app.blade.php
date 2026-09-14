@@ -35,18 +35,16 @@
 
                 <nav class="mt-2 flex flex-col gap-0.5 text-sm flex-1">
                     @php($merchantId = $user->merchant_id)
-                    {!! $navLink('merchants.dashboard', route('merchants.dashboard', $merchantId), 'Dashboard', 'M3 8.5 10 3l7 5.5V17a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1V8.5Z') !!}
-                    {!! $navLink('merchants.plans.*', route('merchants.plans.index', $merchantId), 'Plans', 'M4 4h6l7 7-6.5 6.5-7-7V4Z M7.5 7.5h.01') !!}
-                    {!! $navLink('merchants.customers.*', route('merchants.customers.index', $merchantId), 'Customers', 'M13 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 17c0-2.8 2.7-5 6-5s6 2.2 6 5') !!}
-                    {!! $navLink('merchants.subscriptions.*', route('merchants.subscriptions.index', $merchantId), 'Subscriptions', 'M4 4v4h4M16 16v-4h-4M4.5 10a5.5 5.5 0 0 1 9.4-3.9L16 8M15.5 10a5.5 5.5 0 0 1-9.4 3.9L4 12') !!}
-                    {!! $navLink('merchants.invoices.*', route('merchants.invoices.index', $merchantId), 'Invoices', 'M6 3h8l2 2v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM7.5 8h5M7.5 11h5M7.5 14h3') !!}
-                    @if ($user->role !== \App\Enums\UserRole::MerchantStaff)
-                        {!! $navLink('merchants.users.*', route('merchants.users.index', $merchantId), 'Team', 'M13 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 17c0-2.5 2.5-4.5 6-4.5s6 2 6 4.5M15 4.5a3 3 0 0 1 0 5.8M17.5 17c0-2-1.3-3.7-3.3-4.3') !!}
-                    @endif
+                    {!! $navLink('admin.dashboard', route('admin.dashboard', $merchantId), 'Dashboard', 'M3 8.5 10 3l7 5.5V17a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1V8.5Z') !!}
+                    {!! $navLink('admin.plans.*', route('admin.plans.index', $merchantId), 'Plans', 'M4 4h6l7 7-6.5 6.5-7-7V4Z M7.5 7.5h.01') !!}
+                    {!! $navLink('admin.customers.*', route('admin.customers.index', $merchantId), 'Customers', 'M13 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 17c0-2.8 2.7-5 6-5s6 2.2 6 5') !!}
+                    {!! $navLink('admin.subscriptions.*', route('admin.subscriptions.index', $merchantId), 'Subscriptions', 'M4 4v4h4M16 16v-4h-4M4.5 10a5.5 5.5 0 0 1 9.4-3.9L16 8M15.5 10a5.5 5.5 0 0 1-9.4 3.9L4 12') !!}
+                    {!! $navLink('admin.invoices.*', route('admin.invoices.index', $merchantId), 'Invoices', 'M6 3h8l2 2v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM7.5 8h5M7.5 11h5M7.5 14h3') !!}
+                    {!! $navLink('admin.users.*', route('admin.users.index', $merchantId), 'Team', 'M13 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 17c0-2.5 2.5-4.5 6-4.5s6 2 6 4.5M15 4.5a3 3 0 0 1 0 5.8M17.5 17c0-2-1.3-3.7-3.3-4.3') !!}
                 </nav>
 
                 <div class="border-t border-white/10 px-4 py-3">
-                    <p class="text-gray-500 text-xs">FinPay Technologies</p>
+                    <p class="text-gray-500 text-xs">{{ $user->merchant->name }}</p>
                 </div>
             </aside>
         @endauth
@@ -74,7 +72,7 @@
                             <div class="px-3 py-2 border-b border-gray-100">
                                 <p class="text-xs text-gray-500 truncate">{{ $user->email }}</p>
                             </div>
-                            <form method="POST" action="{{ route('logout') }}">
+                            <form method="POST" action="{{ route('admin.logout') }}">
                                 @csrf
                                 <button type="submit" class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
                                     Log out

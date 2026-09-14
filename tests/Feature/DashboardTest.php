@@ -36,7 +36,7 @@ class DashboardTest extends TestCase
             'total_units' => 250,
         ]);
 
-        $response = $this->actingAs($admin)->get(route('merchants.dashboard', $merchant));
+        $response = $this->actingAs($admin)->get(route('admin.dashboard', $merchant));
 
         $response->assertOk();
         $response->assertViewHas('usage', fn ($usage) => $usage['total_units'] === 250 && $usage['included_units'] === 1000);
@@ -49,7 +49,7 @@ class DashboardTest extends TestCase
         $user = User::factory()->for($ownMerchant)->create();
 
         $this->actingAs($user)
-            ->get(route('merchants.dashboard', $otherMerchant))
+            ->get(route('admin.dashboard', $otherMerchant))
             ->assertForbidden();
     }
 
@@ -57,7 +57,7 @@ class DashboardTest extends TestCase
     {
         $merchant = Merchant::factory()->create();
 
-        $this->get(route('merchants.dashboard', $merchant))
-            ->assertRedirect(route('login'));
+        $this->get(route('admin.dashboard', $merchant))
+            ->assertRedirect(route('admin.login'));
     }
 }

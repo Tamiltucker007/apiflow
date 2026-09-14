@@ -1,7 +1,5 @@
-@php($canManageKeys = auth()->user()->role !== \App\Enums\UserRole::MerchantStaff)
-
 <x-layouts.app :title="$customer->name">
-    <a href="{{ route('merchants.customers.index', $merchant) }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Customers</a>
+    <a href="{{ route('admin.customers.index', $merchant) }}" class="text-sm text-gray-500 hover:text-gray-700">&larr; Customers</a>
 
     <div class="flex items-center justify-between mt-2 mb-6">
         <div>
@@ -9,15 +7,15 @@
             <p class="text-sm text-gray-500">{{ $customer->email }}</p>
         </div>
 
-        @if ($canManageKeys && ! app()->isProduction())
-            <form method="POST" action="{{ route('merchants.customers.simulate-usage', [$merchant, $customer]) }}">
+        @unless (app()->isProduction())
+            <form method="POST" action="{{ route('admin.customers.simulate-usage', [$merchant, $customer]) }}">
                 @csrf
                 <button type="submit" class="bg-white border border-gray-300 text-gray-700 text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
                     title="Backfills a week of usage and re-runs aggregation immediately — for demoing the usage-to-billing flow without a real API client">
                     Simulate Usage (demo)
                 </button>
             </form>
-        @endif
+        @endunless
     </div>
 
     @if (session('newApiKey'))
@@ -35,7 +33,7 @@
                 New portal password generated — copy it and share it with the customer now, it won't be shown again.
             </p>
             <code class="block bg-white border border-amber-200 rounded px-3 py-2 text-sm text-gray-800 break-all select-all">{{ session('newPortalPassword') }}</code>
-            <p class="text-xs text-amber-700 mt-2">They can log in at <span class="font-mono">{{ route('portal.login') }}</span> with {{ $customer->email }}.</p>
+            <p class="text-xs text-amber-700 mt-2">They can log in at <span class="font-mono">{{ route('login') }}</span> with {{ $customer->email }}.</p>
         </div>
     @endif
 
@@ -52,18 +50,16 @@
                 </p>
             </div>
 
-            @if ($canManageKeys)
-                <form method="POST" action="{{ route('merchants.customers.portal-password.store', [$merchant, $customer]) }}"
-                    @if ($customer->password)
-                        data-confirm="This replaces {{ $customer->name }}'s current portal password — they will need the new one to log in."
-                        data-confirm-title="Reset Portal Password" data-confirm-variant="warning" data-confirm-action="Reset Password"
-                    @endif>
-                    @csrf
-                    <button type="submit" class="bg-white border border-gray-300 text-gray-700 text-sm px-3 py-2 rounded-lg hover:bg-gray-50">
-                        {{ $customer->password ? 'Reset Portal Password' : 'Enable Portal Access' }}
-                    </button>
-                </form>
-            @endif
+            <form method="POST" action="{{ route('admin.customers.portal-password.store', [$merchant, $customer]) }}"
+                @if ($customer->password)
+                    data-confirm="This replaces {{ $customer->name }}'s current portal password — they will need the new one to log in."
+                    data-confirm-title="Reset Portal Password" data-confirm-variant="warning" data-confirm-action="Reset Password"
+                @endif>
+                @csrf
+                <button type="submit" class="bg-white border border-gray-300 text-gray-700 text-sm px-3 py-2 rounded-lg hover:bg-gray-50">
+                    {{ $customer->password ? 'Reset Portal Password' : 'Enable Portal Access' }}
+                </button>
+            </form>
         </div>
     </div>
 
@@ -71,16 +67,14 @@
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-sm font-semibold text-gray-700">API Keys</h2>
 
-            @if ($canManageKeys)
-                <form method="POST" action="{{ route('merchants.customers.api-keys.store', [$merchant, $customer]) }}" class="flex items-center gap-2">
-                    @csrf
-                    <input type="text" name="name" placeholder="Key label (optional)" autocomplete="off"
-                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition">
-                    <button type="submit" class="bg-indigo-600 text-white text-sm px-3 py-2 rounded-lg hover:bg-indigo-700">
-                        + Generate New Key
-                    </button>
-                </form>
-            @endif
+            <form method="POST" action="{{ route('admin.customers.api-keys.store', [$merchant, $customer]) }}" class="flex items-center gap-2">
+                @csrf
+                <input type="text" name="name" placeholder="Key label (optional)" autocomplete="off"
+                    class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition">
+                <button type="submit" class="bg-indigo-600 text-white text-sm px-3 py-2 rounded-lg hover:bg-indigo-700">
+                    + Generate New Key
+                </button>
+            </form>
         </div>
 
         <table class="w-full text-sm text-left">
@@ -91,9 +85,7 @@
                     <th class="px-4 py-3">Created</th>
                     <th class="px-4 py-3">Last Used</th>
                     <th class="px-4 py-3">Status</th>
-                    @if ($canManageKeys)
-                        <th class="px-4 py-3"></th>
-                    @endif
+                    <th class="px-4 py-3"></th>
                 </tr>
             </thead>
             <tbody class="divide-y">
@@ -108,23 +100,21 @@
                                 {{ $key->is_active ? 'Active' : 'Revoked' }}
                             </span>
                         </td>
-                        @if ($canManageKeys)
-                            <td class="px-4 py-3 text-right">
-                                @if ($key->is_active)
-                                    <form method="POST" action="{{ route('merchants.customers.api-keys.destroy', [$merchant, $customer, $key]) }}"
-                                        data-confirm="Revoke this key? Any application using it will stop working immediately."
-                                        data-confirm-title="Revoke API Key" data-confirm-variant="danger" data-confirm-action="Revoke">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button class="text-red-600 hover:underline text-xs">Revoke</button>
-                                    </form>
-                                @endif
-                            </td>
-                        @endif
+                        <td class="px-4 py-3 text-right">
+                            @if ($key->is_active)
+                                <form method="POST" action="{{ route('admin.customers.api-keys.destroy', [$merchant, $customer, $key]) }}"
+                                    data-confirm="Revoke this key? Any application using it will stop working immediately."
+                                    data-confirm-title="Revoke API Key" data-confirm-variant="danger" data-confirm-action="Revoke">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="text-red-600 hover:underline text-xs">Revoke</button>
+                                </form>
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="{{ $canManageKeys ? 6 : 5 }}" class="px-4 py-6 text-center text-gray-400">No API keys yet.</td>
+                        <td colspan="6" class="px-4 py-6 text-center text-gray-400">No API keys yet.</td>
                     </tr>
                 @endforelse
             </tbody>

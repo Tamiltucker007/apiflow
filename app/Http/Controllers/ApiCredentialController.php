@@ -23,7 +23,7 @@ class ApiCredentialController extends Controller
         $result = $this->credentials->generateKey($customer, $request->validated('name'));
 
         // The plaintext key is only ever available right now — flash it once.
-        return redirect()->route('merchants.customers.show', [$merchant, $customer])
+        return redirect()->route('admin.customers.show', [$merchant, $customer])
             ->with('newApiKey', $result['key']);
     }
 
@@ -34,7 +34,7 @@ class ApiCredentialController extends Controller
 
         $this->credentials->revokeKey($credential);
 
-        return redirect()->route('merchants.customers.show', [$merchant, $customer])
+        return redirect()->route('admin.customers.show', [$merchant, $customer])
             ->with('status', 'API key revoked.');
     }
 }

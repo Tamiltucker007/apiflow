@@ -30,7 +30,7 @@ class InvoiceController extends Controller
 
         return DataTables::of($query)
             ->addColumn('invoice_link', function (Invoice $invoice) use ($merchant) {
-                $url = route('merchants.invoices.show', [$merchant, $invoice]);
+                $url = route('admin.invoices.show', [$merchant, $invoice]);
 
                 return '<a href="'.$url.'" class="text-indigo-600 hover:underline">'.e($invoice->invoice_number).'</a>';
             })
@@ -38,7 +38,7 @@ class InvoiceController extends Controller
             ->addColumn('total', fn (Invoice $invoice) => Money::format($invoice->total_amount_cents, $invoice->currency))
             ->addColumn('status_badge', fn (Invoice $invoice) => '<span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700">'.$invoice->status->value.'</span>')
             ->addColumn('actions', function (Invoice $invoice) use ($merchant) {
-                $url = route('merchants.invoices.download', [$merchant, $invoice]);
+                $url = route('admin.invoices.download', [$merchant, $invoice]);
 
                 return '<a href="'.$url.'" class="action-link action-edit">Download</a>';
             })

@@ -6,7 +6,7 @@
             <x-alert class="mb-4">{{ $errors->first() }}</x-alert>
         @endif
 
-        <form method="POST" action="{{ route('merchants.plans.store', $merchant) }}">
+        <form method="POST" action="{{ route('admin.plans.store', $merchant) }}">
             @csrf
 
             <div class="grid gap-5 sm:grid-cols-2">

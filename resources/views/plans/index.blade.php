@@ -1,12 +1,8 @@
-@php($canManage = auth()->user()->role !== \App\Enums\UserRole::MerchantStaff)
-
 <x-layouts.app title="Plans">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-xl font-semibold">Plans</h1>
-        @if ($canManage)
-            <a href="{{ route('merchants.plans.create', $merchant) }}"
-                class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700">+ New Plan</a>
-        @endif
+        <a href="{{ route('admin.plans.create', $merchant) }}"
+            class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700">+ New Plan</a>
     </div>
 
     @if ($errors->any())
@@ -24,9 +20,7 @@
                     <th class="px-4 py-3">Included Units</th>
                     <th class="px-4 py-3">Overage Rate</th>
                     <th class="px-4 py-3">Status</th>
-                    @if ($canManage)
-                        <th class="px-4 py-3 text-right">Actions</th>
-                    @endif
+                    <th class="px-4 py-3 text-right">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y"></tbody>
@@ -44,12 +38,10 @@
                     { data: 'included_units_fmt', className: 'px-4 py-3', searchable: false, orderable: false },
                     { data: 'overage_rate', className: 'px-4 py-3', searchable: false, orderable: false },
                     { data: 'status_badge', className: 'px-4 py-3', searchable: false, orderable: false },
-                    @if ($canManage)
-                        { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },
-                    @endif
+                    { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },
                 ];
 
-                window.initDataTable('#plans-table', '{{ route('merchants.plans.data', $merchant) }}', columns, [[1, 'asc']]);
+                window.initDataTable('#plans-table', '{{ route('admin.plans.data', $merchant) }}', columns, [[1, 'asc']]);
             });
         </script>
     @endpush

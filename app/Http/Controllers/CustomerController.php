@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\UserRole;
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Requests\UpdateCustomerRequest;
 use App\Jobs\AggregateUsageJob;
@@ -30,23 +29,17 @@ class CustomerController extends Controller
 
     public function data(Merchant $merchant): JsonResponse
     {
-        $canManage = auth()->user()->role !== UserRole::MerchantStaff;
-
         return DataTables::of(Customer::query()->where('merchant_id', $merchant->id))
             ->addColumn('name_link', function (Customer $customer) use ($merchant) {
-                $url = route('merchants.customers.show', [$merchant, $customer]);
+                $url = route('admin.customers.show', [$merchant, $customer]);
 
                 return '<a href="'.$url.'" class="text-indigo-600 hover:underline">'.e($customer->name).'</a>';
             })
             ->addColumn('phone_fmt', fn (Customer $customer) => $customer->phone ?? '—')
             ->addColumn('registered', fn (Customer $customer) => $customer->created_at->format('d M Y'))
-            ->addColumn('actions', function (Customer $customer) use ($merchant, $canManage) {
-                if (! $canManage) {
-                    return '';
-                }
-
-                $editUrl = route('merchants.customers.edit', [$merchant, $customer]);
-                $destroyUrl = route('merchants.customers.destroy', [$merchant, $customer]);
+            ->addColumn('actions', function (Customer $customer) use ($merchant) {
+                $editUrl = route('admin.customers.edit', [$merchant, $customer]);
+                $destroyUrl = route('admin.customers.destroy', [$merchant, $customer]);
 
                 return '<div class="flex items-center justify-end gap-1">'
                     .'<a href="'.$editUrl.'" class="action-link action-edit">Edit</a>'
@@ -71,7 +64,7 @@ class CustomerController extends Controller
     {
         $this->customers->create($merchant, $request->validated());
 
-        return redirect()->route('merchants.customers.index', $merchant)
+        return redirect()->route('admin.customers.index', $merchant)
             ->with('status', 'Customer registered.');
     }
 
@@ -99,7 +92,7 @@ class CustomerController extends Controller
 
         $this->customers->update($customer, $request->validated());
 
-        return redirect()->route('merchants.customers.index', $merchant)
+        return redirect()->route('admin.customers.index', $merchant)
             ->with('status', 'Customer updated.');
     }
 
@@ -109,7 +102,7 @@ class CustomerController extends Controller
 
         $this->customers->delete($customer);
 
-        return redirect()->route('merchants.customers.index', $merchant)
+        return redirect()->route('admin.customers.index', $merchant)
             ->with('status', 'Customer deleted.');
     }
 
@@ -128,13 +121,13 @@ class CustomerController extends Controller
         try {
             $result = $usage->simulateUsage($customer);
         } catch (ValidationException) {
-            return redirect()->route('merchants.customers.show', [$merchant, $customer])
+            return redirect()->route('admin.customers.show', [$merchant, $customer])
                 ->with('error', 'This customer has no active subscription — subscribe them to a plan first.');
         }
 
         AggregateUsageJob::dispatchSync();
 
-        return redirect()->route('merchants.customers.show', [$merchant, $customer])
+        return redirect()->route('admin.customers.show', [$merchant, $customer])
             ->with('status', "Simulated {$result['total_units']} usage units across {$result['days']} day(s). Dashboard updated.");
     }
 
@@ -149,7 +142,7 @@ class CustomerController extends Controller
 
         $password = $this->customers->generatePortalPassword($customer);
 
-        return redirect()->route('merchants.customers.show', [$merchant, $customer])
+        return redirect()->route('admin.customers.show', [$merchant, $customer])
             ->with('newPortalPassword', $password);
     }
 }

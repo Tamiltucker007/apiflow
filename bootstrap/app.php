@@ -1,9 +1,10 @@
 <?php
 
+use App\Http\Middleware\AuthenticateAdmin;
 use App\Http\Middleware\AuthenticateApiKey;
 use App\Http\Middleware\AuthenticateCustomer;
 use App\Http\Middleware\EnsureMerchantAccess;
-use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\RedirectIfAdminAuthenticated;
 use App\Http\Middleware\RedirectIfCustomerAuthenticated;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -19,9 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
-            'role' => EnsureRole::class,
             'merchant.access' => EnsureMerchantAccess::class,
             'auth.apikey' => AuthenticateApiKey::class,
+            'auth.admin' => AuthenticateAdmin::class,
+            'guest.admin' => RedirectIfAdminAuthenticated::class,
             'auth.customer' => AuthenticateCustomer::class,
             'guest.customer' => RedirectIfCustomerAuthenticated::class,
         ]);

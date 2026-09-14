@@ -13,9 +13,9 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 use Yajra\DataTables\Facades\DataTables;
 
-// Team/user management — merchant_admin only, both to view and to manage.
-// Unlike Plans/Customers/Subscriptions, this isn't business data staff needs
-// read access to; it's who can log in and with what access.
+// Team/user management — every merchant-side user has the same (full) access,
+// so this page is about who can log in, not about granting different levels
+// of business-data access.
 class UserController extends Controller
 {
     use VerifiesTenantOwnership;
@@ -37,15 +37,14 @@ class UserController extends Controller
 
                 return e($user->name).$you;
             })
-            ->addColumn('role_label', fn (User $user) => $user->role->label())
             ->addColumn('status_badge', function (User $user) {
                 $classes = $user->is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
 
                 return '<span class="px-2 py-0.5 rounded text-xs '.$classes.'">'.($user->is_active ? 'Active' : 'Inactive').'</span>';
             })
             ->addColumn('actions', function (User $user) use ($merchant) {
-                $editUrl = route('merchants.users.edit', [$merchant, $user]);
-                $toggleUrl = route('merchants.users.toggle', [$merchant, $user]);
+                $editUrl = route('admin.users.edit', [$merchant, $user]);
+                $toggleUrl = route('admin.users.toggle', [$merchant, $user]);
                 $toggleLabel = $user->is_active ? 'Deactivate' : 'Activate';
 
                 // Only deactivating needs a confirmation — reactivating is
@@ -76,7 +75,7 @@ class UserController extends Controller
     {
         $this->users->create($merchant, $request->validated());
 
-        return redirect()->route('merchants.users.index', $merchant)
+        return redirect()->route('admin.users.index', $merchant)
             ->with('status', 'User created.');
     }
 
@@ -93,7 +92,7 @@ class UserController extends Controller
 
         $this->users->update($user, $request->validated());
 
-        return redirect()->route('merchants.users.index', $merchant)
+        return redirect()->route('admin.users.index', $merchant)
             ->with('status', 'User updated.');
     }
 
@@ -103,7 +102,7 @@ class UserController extends Controller
 
         $this->users->toggleActive($user, auth()->user());
 
-        return redirect()->route('merchants.users.index', $merchant)
+        return redirect()->route('admin.users.index', $merchant)
             ->with('status', $user->is_active ? 'User activated.' : 'User deactivated.');
     }
 }

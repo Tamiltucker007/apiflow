@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\UserRole;
 use App\Http\Requests\StorePlanRequest;
 use App\Models\Merchant;
 use App\Models\Plan;
@@ -27,8 +26,6 @@ class PlanController extends Controller
 
     public function data(Merchant $merchant): JsonResponse
     {
-        $canManage = auth()->user()->role !== UserRole::MerchantStaff;
-
         return DataTables::of(Plan::query()->where('merchant_id', $merchant->id))
             ->addColumn('billing_cycle_label', fn (Plan $plan) => ucfirst($plan->billing_cycle->value))
             ->addColumn('base_price', fn (Plan $plan) => Money::format($plan->base_price_cents, $plan->currency))
@@ -39,14 +36,10 @@ class PlanController extends Controller
 
                 return '<span class="px-2 py-0.5 rounded text-xs '.$classes.'">'.($plan->is_active ? 'Active' : 'Inactive').'</span>';
             })
-            ->addColumn('actions', function (Plan $plan) use ($merchant, $canManage) {
-                if (! $canManage) {
-                    return '';
-                }
-
-                $editUrl = route('merchants.plans.edit', [$merchant, $plan]);
-                $toggleUrl = route('merchants.plans.toggle', [$merchant, $plan]);
-                $destroyUrl = route('merchants.plans.destroy', [$merchant, $plan]);
+            ->addColumn('actions', function (Plan $plan) use ($merchant) {
+                $editUrl = route('admin.plans.edit', [$merchant, $plan]);
+                $toggleUrl = route('admin.plans.toggle', [$merchant, $plan]);
+                $destroyUrl = route('admin.plans.destroy', [$merchant, $plan]);
                 $toggleLabel = $plan->is_active ? 'Deactivate' : 'Activate';
 
                 // Only deactivating needs a confirmation — reactivating is
@@ -79,7 +72,7 @@ class PlanController extends Controller
     {
         $this->plans->create($merchant, $request->validated());
 
-        return redirect()->route('merchants.plans.index', $merchant)
+        return redirect()->route('admin.plans.index', $merchant)
             ->with('status', 'Plan created.');
     }
 
@@ -89,7 +82,7 @@ class PlanController extends Controller
 
         $this->plans->toggleActive($plan);
 
-        return redirect()->route('merchants.plans.index', $merchant)
+        return redirect()->route('admin.plans.index', $merchant)
             ->with('status', $plan->is_active ? 'Plan activated.' : 'Plan deactivated.');
     }
 
@@ -106,7 +99,7 @@ class PlanController extends Controller
 
         $this->plans->update($plan, $request->validated());
 
-        return redirect()->route('merchants.plans.index', $merchant)
+        return redirect()->route('admin.plans.index', $merchant)
             ->with('status', 'Plan updated.');
     }
 
@@ -116,7 +109,7 @@ class PlanController extends Controller
 
         $this->plans->delete($plan);
 
-        return redirect()->route('merchants.plans.index', $merchant)
+        return redirect()->route('admin.plans.index', $merchant)
             ->with('status', 'Plan deleted.');
     }
 }

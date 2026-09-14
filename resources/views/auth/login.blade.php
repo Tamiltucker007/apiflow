@@ -30,7 +30,7 @@
                 <h1 class="text-2xl font-semibold text-gray-900">Welcome back!</h1>
                 <p class="text-sm text-gray-500 mt-1 mb-8">Sign in to manage your usage and billing.</p>
 
-                <form method="POST" action="{{ route('login.store') }}" class="space-y-5" novalidate>
+                <form method="POST" action="{{ route('admin.login.store') }}" class="space-y-5" novalidate>
                     @csrf
 
                     <div>

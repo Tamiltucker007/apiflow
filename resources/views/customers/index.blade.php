@@ -1,12 +1,8 @@
-@php($canManage = auth()->user()->role !== \App\Enums\UserRole::MerchantStaff)
-
 <x-layouts.app title="Customers">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-xl font-semibold">Customers</h1>
-        @if ($canManage)
-            <a href="{{ route('merchants.customers.create', $merchant) }}"
-                class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700">+ Register Customer</a>
-        @endif
+        <a href="{{ route('admin.customers.create', $merchant) }}"
+            class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700">+ Register Customer</a>
     </div>
 
     @if ($errors->any())
@@ -22,9 +18,7 @@
                     <th class="px-4 py-3">Email</th>
                     <th class="px-4 py-3">Phone</th>
                     <th class="px-4 py-3">Registered</th>
-                    @if ($canManage)
-                        <th class="px-4 py-3 text-right">Actions</th>
-                    @endif
+                    <th class="px-4 py-3 text-right">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y"></tbody>
@@ -40,12 +34,10 @@
                     { data: 'email', className: 'px-4 py-3' },
                     { data: 'phone_fmt', className: 'px-4 py-3 text-gray-500', searchable: false, orderable: false },
                     { data: 'registered', className: 'px-4 py-3 text-gray-500', searchable: false, orderable: false },
-                    @if ($canManage)
-                        { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },
-                    @endif
+                    { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },
                 ];
 
-                window.initDataTable('#customers-table', '{{ route('merchants.customers.data', $merchant) }}', columns, [[1, 'asc']]);
+                window.initDataTable('#customers-table', '{{ route('admin.customers.data', $merchant) }}', columns, [[1, 'asc']]);
             });
         </script>
     @endpush

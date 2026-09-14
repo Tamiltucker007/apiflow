@@ -1,7 +1,7 @@
 <x-layouts.app title="Team">
     <div class="flex items-center justify-between mb-6">
         <h1 class="text-xl font-semibold">Team</h1>
-        <a href="{{ route('merchants.users.create', $merchant) }}"
+        <a href="{{ route('admin.users.create', $merchant) }}"
             class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700">+ New User</a>
     </div>
 
@@ -16,7 +16,6 @@
                     <th class="px-4 py-3">#</th>
                     <th class="px-4 py-3">Name</th>
                     <th class="px-4 py-3">Email</th>
-                    <th class="px-4 py-3">Role</th>
                     <th class="px-4 py-3">Status</th>
                     <th class="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -32,12 +31,11 @@
                     window.dtSerialColumn(),
                     { data: 'name_display', className: 'px-4 py-3 font-medium' },
                     { data: 'email', className: 'px-4 py-3' },
-                    { data: 'role_label', className: 'px-4 py-3', searchable: false, orderable: false },
                     { data: 'status_badge', className: 'px-4 py-3', searchable: false, orderable: false },
                     { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },
                 ];
 
-                window.initDataTable('#users-table', '{{ route('merchants.users.data', $merchant) }}', columns, [[1, 'asc']]);
+                window.initDataTable('#users-table', '{{ route('admin.users.data', $merchant) }}', columns, [[1, 'asc']]);
             });
         </script>
     @endpush

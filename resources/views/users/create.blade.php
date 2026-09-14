@@ -6,18 +6,13 @@
             <x-alert class="mb-4">{{ $errors->first() }}</x-alert>
         @endif
 
-        <form method="POST" action="{{ route('merchants.users.store', $merchant) }}">
+        <form method="POST" action="{{ route('admin.users.store', $merchant) }}">
             @csrf
 
             <div class="grid gap-5 sm:grid-cols-2">
                 <x-input label="Name" name="name" value="{{ old('name') }}" required />
 
                 <x-input label="Email" name="email" type="email" value="{{ old('email') }}" required />
-
-                <x-select label="Role" name="role">
-                    <option value="merchant_staff" @selected(old('role', 'merchant_staff') === 'merchant_staff')>Merchant Staff (read-only)</option>
-                    <option value="merchant_admin" @selected(old('role') === 'merchant_admin')>Merchant Admin (full access)</option>
-                </x-select>
 
                 <x-input label="Password" name="password" type="password" required
                     hint="At least 8 characters." />

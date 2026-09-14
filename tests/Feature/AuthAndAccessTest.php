@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Enums\UserRole;
 use App\Models\Merchant;
 use App\Models\Plan;
 use App\Models\User;
@@ -18,9 +17,9 @@ class AuthAndAccessTest extends TestCase
         $merchant = Merchant::factory()->create();
         $user = User::factory()->for($merchant)->create(['password' => bcrypt('correct-password')]);
 
-        $response = $this->post('/login', ['email' => $user->email, 'password' => 'correct-password']);
+        $response = $this->post('/admin/login', ['email' => $user->email, 'password' => 'correct-password']);
 
-        $response->assertRedirect(route('merchants.dashboard', $merchant));
+        $response->assertRedirect(route('admin.dashboard', $merchant));
         $this->assertAuthenticatedAs($user);
     }
 
@@ -28,7 +27,7 @@ class AuthAndAccessTest extends TestCase
     {
         $user = User::factory()->for(Merchant::factory())->create(['password' => bcrypt('correct-password')]);
 
-        $response = $this->post('/login', ['email' => $user->email, 'password' => 'wrong-password']);
+        $response = $this->post('/admin/login', ['email' => $user->email, 'password' => 'wrong-password']);
 
         $response->assertSessionHasErrors('email');
         $this->assertGuest();
@@ -41,38 +40,23 @@ class AuthAndAccessTest extends TestCase
             'is_active' => false,
         ]);
 
-        $response = $this->post('/login', ['email' => $user->email, 'password' => 'correct-password']);
+        $response = $this->post('/admin/login', ['email' => $user->email, 'password' => 'correct-password']);
 
         $response->assertSessionHasErrors('email');
         $this->assertGuest();
     }
 
-    public function test_merchant_staff_is_blocked_from_write_routes(): void
+    public function test_a_merchant_user_can_use_write_routes(): void
     {
         $merchant = Merchant::factory()->create();
-        $staff = User::factory()->for($merchant)->create(['role' => UserRole::MerchantStaff]);
-
-        $this->actingAs($staff)
-            ->post(route('merchants.plans.store', $merchant), [
-                'name' => 'Pro', 'base_price_cents' => 10000, 'billing_cycle' => 'monthly',
-                'included_units' => 1000, 'overage_rate_cents' => 5,
-            ])
-            ->assertForbidden();
-
-        $this->assertSame(0, Plan::where('merchant_id', $merchant->id)->count());
-    }
-
-    public function test_merchant_admin_can_use_write_routes(): void
-    {
-        $merchant = Merchant::factory()->create();
-        $admin = User::factory()->for($merchant)->create(['role' => UserRole::MerchantAdmin]);
+        $admin = User::factory()->for($merchant)->create();
 
         $this->actingAs($admin)
-            ->post(route('merchants.plans.store', $merchant), [
+            ->post(route('admin.plans.store', $merchant), [
                 'name' => 'Pro', 'base_price_cents' => 10000, 'billing_cycle' => 'monthly',
                 'included_units' => 1000, 'overage_rate_cents' => 5,
             ])
-            ->assertRedirect(route('merchants.plans.index', $merchant));
+            ->assertRedirect(route('admin.plans.index', $merchant));
 
         $this->assertSame(1, Plan::where('merchant_id', $merchant->id)->count());
     }
@@ -81,11 +65,11 @@ class AuthAndAccessTest extends TestCase
     {
         $merchantA = Merchant::factory()->create();
         $merchantB = Merchant::factory()->create();
-        $admin = User::factory()->for($merchantA)->create(['role' => UserRole::MerchantAdmin]);
+        $admin = User::factory()->for($merchantA)->create();
         $planFromB = Plan::factory()->for($merchantB)->create(['is_active' => true]);
 
         $this->actingAs($admin)
-            ->put(route('merchants.plans.toggle', [$merchantA, $planFromB]))
+            ->put(route('admin.plans.toggle', [$merchantA, $planFromB]))
             ->assertNotFound();
 
         $this->assertTrue($planFromB->fresh()->is_active);

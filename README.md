@@ -2,7 +2,15 @@
 
 A multi-tenant backend that meters customer API usage against a subscription plan and produces accurate, prorated billing — built for the Mallow Technologies Senior Laravel Developer take-home.
 
-**Demo merchant:** FinPay Technologies — a currency-exchange API where 1 API call = 1 usage unit.
+**Demo merchants** (3, so tenant isolation is something you click through, not just take on faith):
+
+| Merchant | Slug | Business | Theme | Seed data |
+|---|---|---|---|---|
+| FinPay Technologies | `finpay` | Currency Exchange API | Indigo → fuchsia (default) | 5 customers, a mid-cycle plan change, an overage customer, a churn-risk customer |
+| GeoLocate Pro | `geolocate` | Location & Geocoding API | Emerald → teal | 3 customers, one overage, one churn-risk |
+| WeatherCloud | `weathercloud` | Weather Forecast API | Sky → cyan | 2 customers, one overage |
+
+1 API call = 1 usage unit for all three. Seed data is defined once in `Database\Seeders\Support\DemoData::merchants()` — every seeder loops over it instead of hardcoding "finpay", so a 4th merchant is a data change, not a code change.
 
 ## Functional Requirements Coverage
 
@@ -14,7 +22,7 @@ A multi-tenant backend that meters customer API usage against a subscription pla
 | 4 | Cached plan lookups + invalidation strategy | `PlanPricingService::getCachedPlan()` (TTL) + `PlanObserver` (event-based invalidation); tested in `PlanPricingCacheTest` |
 | 5 | `GET /merchants/{id}/dashboard` | `DashboardController` + `DashboardService` — current-cycle usage, top 5 customers, projected overage, churn risk, 30-day trend; tested in `DashboardTest` |
 | 6 | Rate limiting | `RateLimiter::for('api-credential', ...)`, 120 req/min per API key; tested in `RateLimitTest` |
-| 7 | Automated tests | 40 tests across unit + feature — see [Running Tests](#running-tests) |
+| 7 | Automated tests | 60 tests across unit + feature — see [Running Tests](#running-tests) |
 | 8 | Mid-cycle plan change handling | `SubscriptionController::changePlan()` records a `subscription_plan_changes` row; `ProrationService::calculateSegments()` splits the period at the effective date so the next invoice bills each plan's share separately; tested in `ProrationSegmentsTest` and `BillingServiceTest` |
 
 ## Architecture Overview
@@ -56,11 +64,33 @@ External rate lookup    Idempotent insert (event_key unique per merchant)
            Merchant Dashboard (top 5, projected overage, churn risk)
 ```
 
-**Multi-tenancy:** single database, every tenant-owned table carries `merchant_id`. Isolation is enforced in three layers: a global Eloquent scope (`MerchantScope`) filters queries automatically, `EnsureMerchantAccess` middleware blocks cross-tenant route access, and a `VerifiesTenantOwnership` trait adds an explicit ownership check on top for any route where Laravel resolves a route-model-bound record *before* that middleware runs (see [Key Architecture Decisions](#key-architecture-decisions)).
+**Multi-tenancy:** single database, every tenant-owned table carries `merchant_id`.
+- `MerchantScope` — global Eloquent scope, filters queries automatically.
+- `EnsureMerchantAccess` middleware — blocks cross-tenant route access.
+- `VerifiesTenantOwnership` trait — explicit ownership check for routes where a model binds *before* that middleware runs (see [Key Architecture Decisions](#key-architecture-decisions)).
 
-**Roles:** `merchant_admin` (runs the business — plans, customers, subscriptions, billing) and `merchant_staff` (read-only). There is no platform-wide super-admin — see [Assumptions](#assumptions-made) for why.
+**Roles:** one role, `merchant_admin` — full access to plans, customers, subscriptions, billing, team management. A read-only `merchant_staff` tier existed earlier and was removed: the brief never asked for role differentiation, and it was pure branching to maintain for no real capability. `UserRole` stays an enum, not a dropped column, in case a lighter tier is needed later. No platform-wide super-admin — see [Assumptions](#assumptions-made).
 
-**Customer portal (self-service login):** a merchant's own customers can now log in too, separately from `merchant_admin`/`merchant_staff`. This runs on its own `customer` Auth guard/provider (`App\Models\Customer` is `Authenticatable`) and its own route group at `/portal/*` (`routes/portal.php`) — deliberately *not* nested under `merchants/{merchant}`, since a logged-in customer's `merchant_id` comes from their own session, never a route parameter a caller could tamper with. A merchant admin issues (or resets) a customer's portal password from the customer's show page — plaintext shown once, only the hash stored, same pattern as API key generation — since no mail transport is assumed configured for this exercise; a real deployment would email an invite/reset link instead. The portal itself is read-only: current-cycle usage vs. plan allowance, overage units, and invoice history with PDF download, every query scoped to `customer_id = auth('customer')->id()`.
+**Two separate login systems, two separate URL spaces:**
+
+| | Merchant admin | Customer |
+|---|---|---|
+| Guard | `web` (`App\Models\User`) | `customer` (`App\Models\Customer`) |
+| URL space | `/admin/...` | `/` (unprefixed) |
+| Route names | `admin.*` | unprefixed (`login`, `dashboard`, `plans.choose`, …) |
+| Route file | `routes/admin.php` | `routes/customer.php` |
+| Login | `/admin/login` | `/login` |
+
+Each guard has its own auth-flow middleware (`AuthenticateAdmin`/`RedirectIfAdminAuthenticated`, `AuthenticateCustomer`/`RedirectIfCustomerAuthenticated`) instead of Laravel's built-in `auth`/`guest` aliases, which hardcode a redirect to `route('login')` regardless of guard — that breaks the moment two login systems both need their own target. `/` redirects to `/login`, `/admin` redirects to `/admin/login`.
+
+**Customer portal (self-service login + self-registration):**
+- A merchant admin can issue/reset a customer's portal password (plaintext shown once, only the hash stored — same pattern as API keys), or a customer can self-register at `/register/{merchant:slug}` or the `/register` landing page.
+- Registration doesn't log the customer in — it redirects to `/login` so they confirm the password they just set actually works.
+- First login with no active subscription routes to `/plans/choose`; picking a plan calls the same `SubscriptionService::subscribe()` the admin side uses.
+- The portal itself is read-only: current-cycle usage vs. allowance, a 30-day usage chart, invoice history with PDF download — every query scoped to `customer_id = auth('customer')->id()`.
+- Controllers/views still live under `Portal`/`portal/` — internal naming, unrelated to the public URLs above.
+
+**Per-merchant branding:** each merchant has `theme_from`/`theme_to` hex colors (`Merchant::themeFrom()`/`themeTo()`, defaulting to indigo/fuchsia). These can't be Tailwind classes — Tailwind only generates CSS for class names visible in source at build time, not colors read from the database at request time — so they're applied as CSS custom properties (`--brand-from`/`--brand-to`) set inline per request.
 
 ## Tech Stack
 
@@ -69,7 +99,7 @@ External rate lookup    Idempotent insert (event_key unique per merchant)
 - Queue, cache, and session all use Laravel's **database** driver — see the Redis note below
 - Plain session-based auth (no Sanctum/Breeze/Jetstream — hand-written, since this is what's being evaluated)
 - Blade + Tailwind CSS v4 (no React/Vue/Livewire, per the assignment's own scope guidance)
-- **Yajra DataTables** (server-side) for the Plans/Customers/Subscriptions/Invoices lists — search, sort, and pagination run as real SQL (`LIMIT`/`OFFSET`, indexed `WHERE`/`ORDER BY`) against each merchant-scoped query rather than shipping the full table to the browser. The only jQuery/JS dependency in the app; everything else is server-rendered Blade.
+- **Yajra DataTables** (server-side) for the Plans/Customers/Subscriptions/Invoices lists — search, sort, and pagination run as real SQL against each merchant-scoped query rather than shipping the full table to the browser. The only jQuery/JS dependency in the app; everything else is server-rendered Blade.
 
 ## Setup Instructions
 
@@ -91,7 +121,7 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-Queue/cache/session already default to the `database` driver, so no further changes are needed there.
+Queue/cache/session already default to the `database` driver, no further changes needed.
 
 ```bash
 php artisan migrate --seed
@@ -99,9 +129,9 @@ npm install && npm run build
 php artisan serve
 ```
 
-Visit `http://127.0.0.1:8000` and log in (see [Demo Credentials](#demo-credentials)).
+Visit `http://127.0.0.1:8000` (see [Demo Credentials](#demo-credentials)).
 
-**To process queued jobs** (aggregation, invoice generation), run a worker in a separate terminal:
+**To process queued jobs**, run a worker in a separate terminal:
 
 ```bash
 php artisan queue:work
@@ -116,54 +146,55 @@ php artisan billing:generate-invoices
 
 ## Database Schema
 
-11 tables, in dependency order: `merchants`, `users`, `plans`, `customers`, `subscriptions`, `subscription_plan_changes`, `api_credentials`, `usage_events`, `daily_usage`, `invoices`, `invoice_items`. Every column's meaning is documented directly in the migrations via `->comment()` (visible in `SHOW FULL COLUMNS`, not just in code).
+11 tables, in dependency order: `merchants`, `users`, `plans`, `customers`, `subscriptions`, `subscription_plan_changes`, `api_credentials`, `usage_events`, `daily_usage`, `invoices`, `invoice_items`. Every column's meaning is documented directly in the migrations via `->comment()`.
 
 **Scaling `usage_events` to 50L+ (5M+) rows:**
-- Composite indexes already in place for the query patterns that matter: `(merchant_id, customer_id, recorded_date, is_aggregated)` for the aggregation sweep, `(subscription_id, recorded_date)` for billing lookups, `(created_at)` for future partitioning.
-- The `is_aggregated` flag means `AggregateUsageJob` only ever touches unprocessed rows — re-running it is always safe, and the table never needs a second full scan.
-- `chunkById(5000)` instead of `chunk()`/`get()` avoids the offset-scan cost that degrades badly past a few million rows; it pages on a cursor (`id > lastId`), so rows leaving the filtered set as `is_aggregated` flips mid-run never shift the window.
-- **Overlap-safe by two layers:** `AggregateUsageJob` runs both hourly (scheduled) and on-demand (`usage:aggregate`) — a `WithoutOverlapping` job-middleware lock (backed by the cache store) stops a manual run from ever executing concurrently with the scheduled one, and `Schedule::job(...)->withoutOverlapping()` guards the scheduler itself. Without this, two runs could both read the same `is_aggregated = false` rows and double-count them.
-- **Transactional per chunk:** each chunk's `daily_usage` totals and its `is_aggregated` flag update commit together inside one `DB::transaction()`. If the process dies mid-chunk, both roll back together — that's what makes "safe to rerun" actually true, rather than just usually true.
-- **Beyond ~10M rows:** partition `usage_events` by `recorded_date` (monthly RANGE partitioning), archive partitions older than 6 months to cold storage, and point dashboard/reporting queries at a read replica. Note the trade-off: MySQL requires every unique key on a partitioned table to include the partition column, so the idempotency constraint would need to become `(merchant_id, event_key, recorded_date)` — idempotency per calendar day instead of forever. Acceptable here since `event_key`s aren't reused across days in practice, but worth stating explicitly.
-- `daily_usage` deliberately stays small (one row per customer per day, regardless of how many raw events fed into it) — every billing and dashboard query reads from here, never from `usage_events` directly, which is what keeps them fast independent of how large the raw table grows.
+- Composite indexes for the query patterns that matter: `(merchant_id, customer_id, recorded_date, is_aggregated)` for the aggregation sweep, `(subscription_id, recorded_date)` for billing lookups, `(created_at)` for future partitioning.
+- `is_aggregated` flag — `AggregateUsageJob` only touches unprocessed rows, so re-running it is always safe.
+- `chunkById(5000)` instead of `chunk()`/`get()` — avoids offset-scan cost past a few million rows.
+- **Overlap-safe by two layers:** hourly schedule + on-demand (`usage:aggregate`) command both go through a `WithoutOverlapping` job-middleware lock, so a manual run can never race the scheduled one.
+- **Transactional per chunk:** each chunk's `daily_usage` totals and its `is_aggregated` flag commit together — a mid-chunk crash rolls both back, so a rerun never double-counts.
+- **Beyond ~10M rows:** partition by `recorded_date` (monthly RANGE), archive old partitions, read-replica for dashboard queries. Trade-off: a partitioned table's unique key must include the partition column, so idempotency would become per-calendar-day (`merchant_id, event_key, recorded_date`) instead of forever — acceptable since `event_key`s aren't reused across days in practice.
+- `daily_usage` stays small (one row per customer per day) — billing/dashboard queries read from here, never from `usage_events` directly.
 
-**Money:** every amount is an integer cents column (`base_price_cents`, `total_amount_cents`, etc.) — never a float or decimal, to avoid floating-point rounding errors in billing math.
+**Money:** every amount is an integer cents column — never float/decimal, to avoid rounding errors in billing math.
 
 ## Key Architecture Decisions
 
-1. **Idempotency, two mechanisms:** `POST /usage` relies on the unique `(merchant_id, event_key)` constraint plus `insertOrIgnore` — the insert count itself (not a separate exists-check) tells the caller created-vs-duplicate, so concurrent retries can't race. Invoices use an `idempotency_key` (`sub_{id}_period_{start}_{end}`) so `BillingService::generateInvoice()` is safe to call repeatedly.
-2. **Calendar-aligned billing periods, not anniversary-based.** A subscription's period runs to the end of the current calendar month, not "one month from signup." This was a deliberate correction made mid-build: an anniversary model (period = signup date + 1 month) makes it structurally impossible for a subscription to ever start mid-cycle relative to its own period, which would have made the brief's required "prorate a mid-cycle start" scenario unsatisfiable.
-3. **Proration denominator is the nominal full cycle length, not the billed period's own length.** Dividing a segment by itself always returns a 100% ratio when the period is already short (a mid-cycle start) — this is easy to get wrong because it coincidentally works for mid-cycle *plan changes* (whose segments sum to a full period). Fixed by deriving the nominal cycle length from the plan's billing cycle and the period's end date, which is always a true calendar boundary by construction.
-4. **Tenant isolation has a defense-in-depth layer beyond the global scope.** Laravel's `SubstituteBindings` (which resolves route-model-bound parameters like `{plan}`, `{customer}`, `{subscription}`) runs *before* custom middleware like `EnsureMerchantAccess`, regardless of the order they're declared on a route. That means a route-bound model can be resolved unscoped before tenant context is ever set. `VerifiesTenantOwnership` closes this with an explicit `merchant_id` check in the controller — this is how a genuine cross-tenant mutation (a merchant admin toggling another tenant's plan) was caught and fixed during review, before it shipped.
-5. **Cache invalidation is TTL + event-based, not either alone.** `PlanPricingService::getCachedPlan()` caches for 10 minutes; `PlanObserver` clears the cache immediately on update/delete. Using the database cache store rather than Redis (see below) doesn't change this strategy — only the backing store.
-6. **Rate limiting is keyed off the raw request header, not a request attribute.** The obvious approach — read the resolved API credential that `auth.apikey` middleware attaches to the request — breaks because Laravel's internal middleware priority list runs `ThrottleRequests` *before* custom aliases regardless of route-declared order, so the attribute isn't set yet when the limiter's closure runs. Fixed by hashing the raw `Authorization`/`X-API-Key` header directly.
-7. **`/api/*` always renders errors as JSON**, via `shouldRenderJsonWhen()` in `bootstrap/app.php`, rather than relying on the caller sending the right `Accept` header. Laravel's default behavior decides JSON-vs-HTML-redirect from request headers, not from which route group a request hit — worth being explicit about for a pure JSON API.
+1. **Idempotency, two mechanisms:** `POST /usage` relies on the unique `(merchant_id, event_key)` constraint + `insertOrIgnore` — the insert count (not a separate exists-check) tells the caller created-vs-duplicate, so concurrent retries can't race. Invoices use an `idempotency_key` (`sub_{id}_period_{start}_{end}`) so `generateInvoice()` is safe to call repeatedly.
+2. **Calendar-aligned billing periods, not anniversary-based.** A period runs to the end of the calendar month, not "one month from signup" — an anniversary model would make a mid-cycle start structurally impossible, which the brief requires.
+3. **Proration divides by the nominal full cycle length, not the billed period's own length** — dividing a short period by itself always gives 100%. Fixed by deriving cycle length from the plan's billing cycle and the period's end date (always a true calendar boundary).
+4. **Tenant isolation has defense-in-depth beyond the global scope.** `SubstituteBindings` resolves route-model params like `{plan}` *before* `EnsureMerchantAccess` runs, regardless of declared order — so a bound model can be unscoped before tenant context exists. `VerifiesTenantOwnership` adds an explicit `merchant_id` check in the controller; this caught a real cross-tenant mutation bug during review.
+5. **Cache invalidation is TTL + event-based, not either alone.** `PlanPricingService` caches 10 minutes; `PlanObserver` clears immediately on update/delete.
+6. **Rate limiting is keyed off the raw request header, not a request attribute** — `ThrottleRequests` runs before custom middleware aliases regardless of route order, so an attribute set by `auth.apikey` isn't available yet. Fixed by hashing the raw `Authorization`/`X-API-Key` header directly.
+7. **`/api/*` always renders errors as JSON**, via `shouldRenderJsonWhen()`, rather than trusting the caller's `Accept` header.
+8. **Seed data lives in one place** (`DemoData::merchants()`); every seeder loops over it instead of hardcoding a merchant lookup. `ApiCredentialSeeder`/`InvoiceSeeder` needed no loop at all — they already operate on "every customer" / "every active subscription".
 
 ## Assumptions Made
 
 - **1 API request = 1 usage unit.**
 - **Currency defaults to INR**; each plan carries its own currency code.
 - **Rate limit: 120 requests/minute per API credential** (not per IP).
-- **No public customer self-registration**, even though customers can now log in (see [Customer Portal](#architecture-overview) above). Customers are still only ever created by the merchant's own admin from the dashboard; a merchant admin then separately issues that customer a portal password. Self-service sign-up (a customer creating their own account with no merchant involved) is out of scope — the brief frames customers as the merchant's own client base, not people who sign themselves up on the platform. The portal itself was added afterward as a read-only, admin-provisioned add-on beyond the brief's 8 core requirements, not a replacement for that boundary.
-- **No platform-wide super-admin role.** An earlier version of this app had a `super_admin` role with its own tenant-management CRUD (create/suspend merchants), modeled after a typical SaaS platform-owner layer. It was removed after re-reading the brief: the assignment's scope is a *single merchant's* billing/usage system, not a platform admin tool for onboarding multiple tenants — that layer was scope the take-home never asked for. `MerchantSeeder` creates the one demo tenant instead.
-- **A customer has at most one active subscription at a time.** Changing plans mid-cycle updates the existing subscription (recorded in `subscription_plan_changes`) rather than creating a second, parallel one.
+- **Customers can self-register**, beyond the brief's 8 core requirements — either an admin creates the account and issues a password, or the customer signs up at a merchant-scoped link (`/register/{merchant:slug}`). No platform-wide signup with no merchant context, since every customer belongs to exactly one merchant.
+- **No platform-wide super-admin role.** Out of scope — the brief is a single merchant's billing system, not a platform tool for onboarding tenants. `MerchantSeeder` seeds three demo tenants instead so isolation can be demonstrated directly.
+- **A customer has at most one active subscription at a time.** A mid-cycle plan change updates the existing subscription (recorded in `subscription_plan_changes`) rather than creating a second one.
 
 ## Trade-offs Under Time Pressure
 
-- **Redis/Horizon were not installed.** Queue, cache, and session all use Laravel's `database` driver instead. The brief explicitly allows this ("Redis or array cache is fine for the exercise"), and the caching/queueing *code* is driver-agnostic — swapping to Redis later is purely a `.env` change (`QUEUE_CONNECTION=redis`, `CACHE_STORE=redis`), no application code would need to change.
-- **No Stripe integration.** Not part of the brief's 8 functional requirements — it only appeared in a separate planning document, not the graded assignment.
-- **No pagination yet** on customer/plan lists or dashboard queries. Fine at the current demo scale (one merchant, a handful of customers); would need `->paginate()` before this scaled to hundreds of customers.
-- **A simple `role` string column** instead of a permissions package — sufficient for two roles, avoids a dependency the brief explicitly says isn't needed.
-- **Money is formatted via a small static helper** (`App\Support\Money::format()`) rather than a full value-object wrapper around integer cents.
+- **Redis/Horizon not installed** — queue/cache/session use Laravel's `database` driver (brief allows this explicitly). The code is driver-agnostic; switching later is a `.env` change only.
+- **No Stripe integration** — not part of the brief's 8 functional requirements.
+- **No pagination yet** on customer/plan lists or dashboard queries — fine at demo scale, would need `->paginate()` at hundreds of customers.
+- **A simple `role` string column** instead of a permissions package — kept even after simplifying to one role, since it costs nothing to leave in place.
+- **Money uses a small static helper** (`App\Support\Money::format()`) rather than a full value-object.
 
 ## What I'd Do Differently With More Time
 
-- Add pagination to list/dashboard queries once data volume actually warrants it.
-- Extract the repeated "merchant-scoped uniqueness/exists" validation pattern out of the Form Requests into a shared helper.
-- Add a proper `Money` value object instead of raw integer cents plus a formatter function.
-- Swap to Redis + Horizon for real queue observability, retries, and worker metrics in production.
-- Partition `usage_events` by `recorded_date` before it's actually needed, rather than as a "when it hurts" migration.
-- Add OpenAPI/Swagger documentation and API versioning for the public endpoints.
+- Add pagination to list/dashboard queries.
+- Extract the repeated merchant-scoped uniqueness validation out of the Form Requests into a shared helper.
+- Add a proper `Money` value object instead of raw integer cents + a formatter.
+- Swap to Redis + Horizon for real queue observability in production.
+- Partition `usage_events` proactively rather than as a "when it hurts" migration.
+- Add OpenAPI/Swagger documentation and API versioning.
 
 ## Running Tests
 
@@ -171,54 +202,62 @@ php artisan billing:generate-invoices
 php artisan test
 ```
 
-Tests run against an in-memory SQLite database (configured in `phpunit.xml`), so `php artisan test` never touches — or wipes — the real MySQL dev database. 49 tests, all passing:
+Runs against an in-memory SQLite database (`phpunit.xml`) — never touches the real MySQL dev database. 60 tests, all passing:
 
 | File | Covers |
 |---|---|
-| `Unit/BillingCycleTest` | Calendar-aligned period boundaries (monthly/quarterly/yearly), the `diffInDays()` float-precision fix |
-| `Unit/ProrationServiceTest` | The prorate formula itself: full-cycle, partial-cycle, zero-division guard |
+| `Unit/BillingCycleTest` | Calendar-aligned period boundaries, the `diffInDays()` float-precision fix |
+| `Unit/ProrationServiceTest` | The prorate formula: full-cycle, partial-cycle, zero-division guard |
 | `Feature/ProrationSegmentsTest` | Splitting a billing period into per-plan segments around a mid-cycle plan change |
-| `Feature/BillingServiceTest` | End-to-end invoice generation: full-period billing, mid-cycle-start proration, overage, a mid-cycle plan change billed across two segments, and invoice idempotency (same period never double-invoiced) |
-| `Feature/PlanPricingCacheTest` | Plan cache populates on first read and is invalidated immediately on update/delete |
-| `Feature/Api/UsageEndpointTest` | `POST /usage` auth, validation, and idempotency (a replayed `event_key` is a no-op, not a duplicate row) |
-| `Feature/Api/RateLimitTest` | 120 req/min per API credential; the 121st request is throttled; two credentials are limited independently |
-| `Feature/AggregateUsageJobTest` | Chunked aggregation: correct sums, safe to rerun, multiple merchants in one pass, overlap-locked against concurrent runs |
-| `Feature/DashboardTest` | Dashboard renders correct usage totals; cross-tenant access is blocked; unauthenticated access redirects to login |
-| `Feature/AuthAndAccessTest` | Login success/failure/deactivated-account cases; `merchant_staff` blocked from write routes; cross-tenant plan mutation blocked even with a valid route-bound model |
-| `Feature/Portal/CustomerPortalTest` | Customer portal login (correct/wrong/no-password cases), unauthenticated visitors land on `/portal/login` not the merchant login, dashboard shows the right customer's own usage, a customer cannot open another customer's invoice by id, and the full admin-issues-password → customer-logs-in flow |
+| `Feature/BillingServiceTest` | End-to-end invoice generation: proration, overage, plan-change segments, idempotency |
+| `Feature/PlanPricingCacheTest` | Plan cache populates on first read, invalidated on update/delete |
+| `Feature/Api/UsageEndpointTest` | `POST /usage` auth, validation, and idempotency |
+| `Feature/Api/RateLimitTest` | 120 req/min per API credential; independent limits per credential |
+| `Feature/AggregateUsageJobTest` | Chunked aggregation: correct sums, safe to rerun, multi-merchant, overlap-locked |
+| `Feature/DashboardTest` | Correct usage totals; cross-tenant access blocked; unauthenticated redirect |
+| `Feature/AuthAndAccessTest` | Login success/failure/deactivated cases; write-route access; cross-tenant mutation blocked |
+| `Feature/Portal/CustomerPortalTest` | Portal login cases; correct guard redirect; own-data-only access; admin-issues-password flow |
+| `Feature/Portal/CustomerRegistrationTest` | Landing page + theme rendering; self-registration flow; duplicate/merchant-scoped email rules; plan-choose flow |
 
-Stripe isn't covered since it isn't part of this build (see [Trade-offs](#trade-offs-under-time-pressure)).
+Stripe isn't covered — not part of this build (see [Trade-offs](#trade-offs-under-time-pressure)).
 
 ## Demo Credentials
 
 | Role | Email | Password |
 |---|---|---|
-| Merchant Admin (FinPay) | admin@finpay.com | password |
-| Merchant Staff (FinPay) | staff@finpay.com | password |
-| Customer Portal (ABC Forex Pvt Ltd, at `/portal/login`) | billing@abcforex.test | password |
+| Merchant User (FinPay Technologies), at `/admin/login` | admin@finpay.com | password |
+| Merchant User (GeoLocate Pro), at `/admin/login` | admin@geolocate.com | password |
+| Merchant User (WeatherCloud), at `/admin/login` | admin@weathercloud.com | password |
+| Customer Portal (ABC Forex Pvt Ltd), at `/login` | billing@abcforex.test | password |
 
-Seeded customer API keys are printed to the console once, during `php artisan db:seed` (via `ApiCredentialSeeder`) — they're SHA-256-hashed in the database and cannot be retrieved again afterward, so re-seed if you need a fresh set. The other seeded customers have no portal password until a merchant admin issues one from their customer page (`Enable Portal Access`) — only ABC Forex gets one automatically, so the demo has a ready login without scripting that step first.
+Log into two different merchants back to back to see tenant isolation directly — different customers, plans, usage; neither can reach the other's `/admin/merchants/{id}/...` URLs (403).
+
+Seeded API keys print once to the console during `db:seed` — SHA-256-hashed afterward, re-seed for a fresh set. Only ABC Forex has a portal password pre-set; other customers need `Enable Portal Access` from their admin page first.
+
+To try self-registration instead, visit `/register`, pick a merchant, and use a fresh email — no seeded credentials needed.
 
 ## API Endpoints
 
-All API routes require `Authorization: Bearer <api_key>` (or `X-API-Key: <api_key>`) and are rate-limited to 120 req/min per key.
+All API routes require `Authorization: Bearer <api_key>` (or `X-API-Key: <api_key>`), rate-limited to 120 req/min per key.
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | `/api/v1/exchange-rate?from=USD&to=INR` | Demo currency conversion; records 1 usage unit on success |
-| POST | `/api/v1/usage` | Records a usage event directly (`event_key`, `units`, `recorded_date`); idempotent |
+| GET | `/api/v1/exchange-rate?from=USD&to=INR` | Demo currency conversion; records 1 usage unit |
+| POST | `/api/v1/usage` | Records a usage event (`event_key`, `units`, `recorded_date`); idempotent |
 | GET | `/api/v1/invoices` | Lists the authenticated customer's own invoices |
 | GET | `/api/v1/invoices/{invoice}/download` | Downloads that invoice as a PDF |
 
-**Invoice PDFs, three ways:** a `merchant_admin`/`merchant_staff` can download any of their merchant's invoices from the dashboard (`/merchants/{merchant}/invoices/{invoice}/download`); a customer's own app can list and download its invoices via the API routes above, using its API key; and the customer themselves can download the same PDF from `/portal/invoices/{invoice}/download` after logging in. All three render through the same `InvoicePdfService`/`invoices/pdf.blade.php` (dompdf), so the document is identical everywhere; both the API route and the portal route check `invoice->customer_id` against the authenticated caller's own customer before rendering, since (like the dashboard's route-bound models) `{invoice}` resolves before tenant/customer context is set.
+**Invoice PDFs, three ways:** merchant dashboard (`/admin/merchants/{merchant}/invoices/{invoice}/download`), the API routes above (own key), or the customer portal (`/invoices/{invoice}/download`) — all three render through the same `InvoicePdfService`, and both non-admin routes check `invoice->customer_id` against the caller before rendering.
 
-**Customer portal** (`/portal/*`, guard `customer`, distinct from the merchant-side `web` guard): `GET /portal/login`, `POST /portal/login`, `POST /portal/logout`, `GET /portal/dashboard` (own plan, current-cycle usage vs. allowance, overage units, invoice list), `GET /portal/invoices/{invoice}` and `.../download`. No `merchants/{merchant}` prefix — a customer's tenant is implicit from who they are, not a URL segment.
+**Customer routes** (`routes/customer.php`, guard `customer`, no URL prefix): `/login`, `/logout`, `/dashboard`, `/plans/choose`, `/invoices/{invoice}` (+ `/download`), `/register`, `/register/{merchant:slug}`.
 
-Dashboard routes are session-authenticated and merchant-scoped under `/merchants/{merchant}/...`: `dashboard`, `plans`, `customers`, `subscriptions`, `invoices` (each with the create/edit/toggle actions a `merchant_admin` needs; `merchant_staff` gets read-only views). Subscriptions also expose **Change Plan** (records the mid-cycle change and switches the subscription immediately) and **Generate Invoice** (bills the current period on demand, splitting it into per-plan segments if it contains a plan change). Invoices stay read-only for both roles — they're the record of what was actually billed, not something either role should be able to edit or delete after the fact.
+**Admin routes** (`routes/admin.php`, guard `web`, prefix `/admin` + name prefix `admin.`): `/admin/login`, `/admin/logout`, then everything merchant-scoped under `/admin/merchants/{merchant}/...` — `dashboard`, `plans`, `customers`, `subscriptions`, `invoices`, `users` (Team).
 
-A `users` (Team) module lets a `merchant_admin` create/edit teammates and toggle their access — admin-only end to end, since it's who can log in rather than business data `merchant_staff` needs to see. Two guards prevent a merchant from locking itself out: a user can't deactivate their own account, and the last active admin for a merchant can't be deactivated or demoted (via toggle or role edit) while no other active admin exists.
+Every merchant user has full create/edit/toggle access on Plans/Customers/Subscriptions. Subscriptions also expose **Change Plan** and **Generate Invoice** (on-demand billing, split into segments if it spans a plan change). Invoices stay read-only — they're a record of what was billed, not something to edit after the fact.
 
-`php artisan billing:generate-invoices` is the cycle-end counterpart: it finds every active subscription whose period has already ended, dispatches `GenerateInvoiceJob` for the period that just closed, and rolls the subscription into its next period. Intended to run daily via the scheduler alongside the hourly `usage:aggregate`.
+The Team module lets a merchant user manage teammates. Guards: a user can't deactivate their own account, and the last active user for a merchant can't be deactivated while no other exists.
+
+`php artisan billing:generate-invoices` is the cycle-end counterpart to the hourly aggregation: finds every subscription whose period ended, generates its invoice, rolls it to the next period. Meant to run daily via the scheduler.
 
 ## Prompt Log
 

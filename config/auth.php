@@ -42,7 +42,7 @@ return [
         ],
 
         // Self-service customer portal — separate identity space from the
-        // merchant-side "web" guard/User model. See routes/portal.php.
+        // merchant-side "web" guard/User model. See routes/customer.php.
         'customer' => [
             'driver' => 'session',
             'provider' => 'customers',

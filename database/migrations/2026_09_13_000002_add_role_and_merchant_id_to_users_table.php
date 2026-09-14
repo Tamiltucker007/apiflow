@@ -12,9 +12,9 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->string('role')
-                ->default(UserRole::MerchantStaff->value)
+                ->default(UserRole::MerchantAdmin->value)
                 ->after('password')
-                ->comment('merchant_admin = manages own merchant | merchant_staff = read-only + limited write within own merchant');
+                ->comment('Every merchant-side dashboard user is a full admin — no read-only tier exists');
 
             $table->foreignId('merchant_id')
                 ->after('role')

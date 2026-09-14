@@ -12,7 +12,7 @@ class RedirectIfCustomerAuthenticated
     public function handle(Request $request, Closure $next): Response
     {
         if (Auth::guard('customer')->check()) {
-            return redirect()->route('portal.dashboard');
+            return redirect()->route('dashboard');
         }
 
         return $next($request);

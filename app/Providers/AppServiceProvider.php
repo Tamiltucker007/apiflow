@@ -5,7 +5,6 @@ namespace App\Providers;
 use App\Models\Plan;
 use App\Observers\PlanObserver;
 use App\Services\MerchantContext;
-use Illuminate\Auth\Middleware\RedirectIfAuthenticated;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -30,16 +29,9 @@ class AppServiceProvider extends ServiceProvider
     {
         Plan::observe(PlanObserver::class);
 
-        // There's no parameter-free "dashboard"/"home" route (dashboards are
-        // per-merchant), so Laravel's default post-login redirect would fall
-        // through to the "/" route -> which itself redirects to /login,
-        // looping forever for an already-authenticated visitor. Send them
-        // straight to their own merchant's dashboard instead.
-        RedirectIfAuthenticated::redirectUsing(function (Request $request) {
-            $user = $request->user();
-
-            return $user ? route('merchants.dashboard', $user->merchant_id) : route('login');
-        });
+        // Auth/guest redirects for both guards live in dedicated middleware
+        // (see app/Http/Middleware/) instead of here — not Laravel's default
+        // 'auth'/'guest' hooks, which only resolve to one global route('login').
 
         // 120 req/min per API credential (not per IP). Keyed off the raw
         // header rather than the apiCredential request attribute: Laravel's

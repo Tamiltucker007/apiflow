@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Enums\SubscriptionStatus;
-use App\Enums\UserRole;
 use App\Http\Requests\ChangePlanRequest;
 use App\Http\Requests\CreateSubscriptionRequest;
 use App\Models\Customer;
@@ -35,7 +34,6 @@ class SubscriptionController extends Controller
 
     public function data(Merchant $merchant): JsonResponse
     {
-        $canManage = auth()->user()->role !== UserRole::MerchantStaff;
         $plans = $merchant->plans()->active()->orderBy('name')->get();
 
         $query = Subscription::query()
@@ -51,18 +49,14 @@ class SubscriptionController extends Controller
                 return '<span class="px-2 py-0.5 rounded text-xs '.$classes.'">'.$s->status->value.'</span>';
             })
             ->addColumn('period', fn (Subscription $s) => $s->current_period_start->format('d M Y').' – '.$s->current_period_end->format('d M Y'))
-            ->addColumn('actions', function (Subscription $s) use ($merchant, $plans, $canManage) {
-                if (! $canManage) {
-                    return '';
-                }
-
+            ->addColumn('actions', function (Subscription $s) use ($merchant, $plans) {
                 if ($s->status !== SubscriptionStatus::Active) {
                     return '<span class="text-xs text-gray-400">—</span>';
                 }
 
-                $invoiceUrl = route('merchants.subscriptions.generate-invoice', [$merchant, $s]);
-                $changeUrl = route('merchants.subscriptions.change-plan', [$merchant, $s]);
-                $cancelUrl = route('merchants.subscriptions.cancel', [$merchant, $s]);
+                $invoiceUrl = route('admin.subscriptions.generate-invoice', [$merchant, $s]);
+                $changeUrl = route('admin.subscriptions.change-plan', [$merchant, $s]);
+                $cancelUrl = route('admin.subscriptions.cancel', [$merchant, $s]);
 
                 $options = $plans->map(fn (Plan $plan) => '<option value="'.$plan->id.'"'.($plan->id === $s->plan_id ? ' selected' : '').'>'.e($plan->name).'</option>')->implode('');
 
@@ -98,7 +92,7 @@ class SubscriptionController extends Controller
 
         $this->subscriptions->subscribe($customer, $plan);
 
-        return redirect()->route('merchants.subscriptions.index', $merchant)
+        return redirect()->route('admin.subscriptions.index', $merchant)
             ->with('status', 'Subscription created.');
     }
 
@@ -109,7 +103,7 @@ class SubscriptionController extends Controller
         $newPlan = Plan::findOrFail($request->validated('plan_id'));
         $this->subscriptions->changePlan($subscription, $newPlan);
 
-        return redirect()->route('merchants.subscriptions.index', $merchant)
+        return redirect()->route('admin.subscriptions.index', $merchant)
             ->with('status', "Plan changed to {$newPlan->name}, effective today.");
     }
 
@@ -119,7 +113,7 @@ class SubscriptionController extends Controller
 
         $invoice = $billing->generateInvoice($subscription);
 
-        return redirect()->route('merchants.invoices.show', [$merchant, $invoice])
+        return redirect()->route('admin.invoices.show', [$merchant, $invoice])
             ->with('status', 'Invoice generated.');
     }
 
@@ -129,7 +123,7 @@ class SubscriptionController extends Controller
 
         $this->subscriptions->cancel($subscription);
 
-        return redirect()->route('merchants.subscriptions.index', $merchant)
+        return redirect()->route('admin.subscriptions.index', $merchant)
             ->with('status', 'Subscription cancelled.');
     }
 }

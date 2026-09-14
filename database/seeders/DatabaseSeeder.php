@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use Database\Seeders\Support\DemoData;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -20,13 +21,17 @@ class DatabaseSeeder extends Seeder
             InvoiceSeeder::class,
         ]);
 
-        $this->command->table(
-            ['Role', 'Email', 'Password'],
-            [
-                ['Merchant Admin (FinPay)', 'admin@finpay.com', 'password'],
-                ['Merchant Staff (FinPay)', 'staff@finpay.com', 'password'],
-                ['Customer Portal (ABC Forex, /portal/login)', 'billing@abcforex.test', 'password'],
-            ]
-        );
+        $rows = [];
+
+        foreach (DemoData::merchants() as $slug => $data) {
+            $rows[] = ["Merchant User ({$data['name']})", $data['admin_email'], 'password'];
+        }
+
+        $rows[] = ['Customer Portal (ABC Forex Pvt Ltd, at /login)', 'billing@abcforex.test', 'password'];
+
+        $this->command->table(['Role', 'Email', 'Password'], $rows);
+
+        $this->command->newLine();
+        $this->command->info('Self-registration landing page: /register (or a direct merchant link, e.g. /register/finpay)');
     }
 }

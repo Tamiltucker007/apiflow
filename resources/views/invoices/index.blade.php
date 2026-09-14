@@ -31,7 +31,7 @@
                     { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },
                 ];
 
-                window.initDataTable('#invoices-table', '{{ route('merchants.invoices.data', $merchant) }}', columns, [[1, 'desc']]);
+                window.initDataTable('#invoices-table', '{{ route('admin.invoices.data', $merchant) }}', columns, [[1, 'desc']]);
             });
         </script>
     @endpush

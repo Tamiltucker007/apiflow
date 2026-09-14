@@ -62,4 +62,22 @@ class CustomerService
 
         return $password;
     }
+
+    /**
+     * Public self-registration (see routes/customer.php) — unlike create(),
+     * this sets the customer's own chosen password directly instead of
+     * requiring an admin to issue one afterward. The signup form only asks
+     * for email/password, so name is derived from the email's local part;
+     * the customer can rename themselves later if a profile-edit page is
+     * ever added.
+     */
+    public function registerSelf(Merchant $merchant, string $email, string $password): Customer
+    {
+        return Customer::create([
+            'merchant_id' => $merchant->id,
+            'name' => Str::before($email, '@'),
+            'email' => $email,
+            'password' => $password,
+        ]);
+    }
 }
