@@ -4,6 +4,19 @@ A multi-tenant backend that meters customer API usage against a subscription pla
 
 **Demo merchant:** FinPay Technologies — a currency-exchange API where 1 API call = 1 usage unit.
 
+## Functional Requirements Coverage
+
+| # | Requirement | Where |
+|---|---|---|
+| 1 | Normalized, indexed schema for 50L+ rows | 11 tables, composite indexes on `usage_events` and `daily_usage` — see [Database Schema](#database-schema) |
+| 2 | Idempotent `POST /usage` | `UsageService::recordUsage()` — unique `(merchant_id, event_key)` + `insertOrIgnore`; tested in `UsageEndpointTest` |
+| 3 | Queued, chunked aggregation + proration billing | `AggregateUsageJob` (`chunkById(5000)`, transactional, overlap-locked) → `BillingService` + `ProrationService`; tested in `AggregateUsageJobTest`, `BillingServiceTest`, `ProrationSegmentsTest` |
+| 4 | Cached plan lookups + invalidation strategy | `PlanPricingService::getCachedPlan()` (TTL) + `PlanObserver` (event-based invalidation); tested in `PlanPricingCacheTest` |
+| 5 | `GET /merchants/{id}/dashboard` | `DashboardController` + `DashboardService` — current-cycle usage, top 5 customers, projected overage, churn risk, 30-day trend; tested in `DashboardTest` |
+| 6 | Rate limiting | `RateLimiter::for('api-credential', ...)`, 120 req/min per API key; tested in `RateLimitTest` |
+| 7 | Automated tests | 40 tests across unit + feature — see [Running Tests](#running-tests) |
+| 8 | Mid-cycle plan change handling | `SubscriptionController::changePlan()` records a `subscription_plan_changes` row; `ProrationService::calculateSegments()` splits the period at the effective date so the next invoice bills each plan's share separately; tested in `ProrationSegmentsTest` and `BillingServiceTest` |
+
 ## Architecture Overview
 
 **Request flow, end to end:**
@@ -54,6 +67,7 @@ External rate lookup    Idempotent insert (event_key unique per merchant)
 - Queue, cache, and session all use Laravel's **database** driver — see the Redis note below
 - Plain session-based auth (no Sanctum/Breeze/Jetstream — hand-written, since this is what's being evaluated)
 - Blade + Tailwind CSS v4 (no React/Vue/Livewire, per the assignment's own scope guidance)
+- **Yajra DataTables** (server-side) for the Plans/Customers/Subscriptions/Invoices lists — search, sort, and pagination run as real SQL (`LIMIT`/`OFFSET`, indexed `WHERE`/`ORDER BY`) against each merchant-scoped query rather than shipping the full table to the browser. The only jQuery/JS dependency in the app; everything else is server-rendered Blade.
 
 ## Setup Instructions
 
@@ -105,8 +119,10 @@ php artisan billing:generate-invoices
 **Scaling `usage_events` to 50L+ (5M+) rows:**
 - Composite indexes already in place for the query patterns that matter: `(merchant_id, customer_id, recorded_date, is_aggregated)` for the aggregation sweep, `(subscription_id, recorded_date)` for billing lookups, `(created_at)` for future partitioning.
 - The `is_aggregated` flag means `AggregateUsageJob` only ever touches unprocessed rows — re-running it is always safe, and the table never needs a second full scan.
-- `chunkById(5000)` instead of `chunk()`/`get()` avoids the offset-scan cost that degrades badly past a few million rows.
-- **Beyond ~10M rows:** partition `usage_events` by `recorded_date` (monthly RANGE partitioning), archive partitions older than 6 months to cold storage, and point dashboard/reporting queries at a read replica.
+- `chunkById(5000)` instead of `chunk()`/`get()` avoids the offset-scan cost that degrades badly past a few million rows; it pages on a cursor (`id > lastId`), so rows leaving the filtered set as `is_aggregated` flips mid-run never shift the window.
+- **Overlap-safe by two layers:** `AggregateUsageJob` runs both hourly (scheduled) and on-demand (`usage:aggregate`) — a `WithoutOverlapping` job-middleware lock (backed by the cache store) stops a manual run from ever executing concurrently with the scheduled one, and `Schedule::job(...)->withoutOverlapping()` guards the scheduler itself. Without this, two runs could both read the same `is_aggregated = false` rows and double-count them.
+- **Transactional per chunk:** each chunk's `daily_usage` totals and its `is_aggregated` flag update commit together inside one `DB::transaction()`. If the process dies mid-chunk, both roll back together — that's what makes "safe to rerun" actually true, rather than just usually true.
+- **Beyond ~10M rows:** partition `usage_events` by `recorded_date` (monthly RANGE partitioning), archive partitions older than 6 months to cold storage, and point dashboard/reporting queries at a read replica. Note the trade-off: MySQL requires every unique key on a partitioned table to include the partition column, so the idempotency constraint would need to become `(merchant_id, event_key, recorded_date)` — idempotency per calendar day instead of forever. Acceptable here since `event_key`s aren't reused across days in practice, but worth stating explicitly.
 - `daily_usage` deliberately stays small (one row per customer per day, regardless of how many raw events fed into it) — every billing and dashboard query reads from here, never from `usage_events` directly, which is what keeps them fast independent of how large the raw table grows.
 
 **Money:** every amount is an integer cents column (`base_price_cents`, `total_amount_cents`, etc.) — never a float or decimal, to avoid floating-point rounding errors in billing math.
@@ -153,9 +169,22 @@ php artisan billing:generate-invoices
 php artisan test
 ```
 
-Tests run against an in-memory SQLite database (configured in `phpunit.xml`), so `php artisan test` never touches — or wipes — the real MySQL dev database.
+Tests run against an in-memory SQLite database (configured in `phpunit.xml`), so `php artisan test` never touches — or wipes — the real MySQL dev database. 40 tests, all passing:
 
-> **Status:** the PHPUnit suite (proration/overage edge cases, aggregation idempotency, usage-endpoint idempotency, dashboard calculations) is the next item being built — every feature above has been verified through live, real-request testing during development, but that isn't a substitute for an automated suite. This section will list the actual test files once they land.
+| File | Covers |
+|---|---|
+| `Unit/BillingCycleTest` | Calendar-aligned period boundaries (monthly/quarterly/yearly), the `diffInDays()` float-precision fix |
+| `Unit/ProrationServiceTest` | The prorate formula itself: full-cycle, partial-cycle, zero-division guard |
+| `Feature/ProrationSegmentsTest` | Splitting a billing period into per-plan segments around a mid-cycle plan change |
+| `Feature/BillingServiceTest` | End-to-end invoice generation: full-period billing, mid-cycle-start proration, overage, a mid-cycle plan change billed across two segments, and invoice idempotency (same period never double-invoiced) |
+| `Feature/PlanPricingCacheTest` | Plan cache populates on first read and is invalidated immediately on update/delete |
+| `Feature/Api/UsageEndpointTest` | `POST /usage` auth, validation, and idempotency (a replayed `event_key` is a no-op, not a duplicate row) |
+| `Feature/Api/RateLimitTest` | 120 req/min per API credential; the 121st request is throttled; two credentials are limited independently |
+| `Feature/AggregateUsageJobTest` | Chunked aggregation: correct sums, safe to rerun, multiple merchants in one pass, overlap-locked against concurrent runs |
+| `Feature/DashboardTest` | Dashboard renders correct usage totals; cross-tenant access is blocked; unauthenticated access redirects to login |
+| `Feature/AuthAndAccessTest` | Login success/failure/deactivated-account cases; `merchant_staff` blocked from write routes; cross-tenant plan mutation blocked even with a valid route-bound model |
+
+Stripe isn't covered since it isn't part of this build (see [Trade-offs](#trade-offs-under-time-pressure)).
 
 ## Demo Credentials
 
@@ -175,7 +204,9 @@ All API routes require `Authorization: Bearer <api_key>` (or `X-API-Key: <api_ke
 | GET | `/api/v1/exchange-rate?from=USD&to=INR` | Demo currency conversion; records 1 usage unit on success |
 | POST | `/api/v1/usage` | Records a usage event directly (`event_key`, `units`, `recorded_date`); idempotent |
 
-Dashboard routes are session-authenticated and merchant-scoped under `/merchants/{merchant}/...`: `dashboard`, `plans`, `customers`, `subscriptions`, `invoices` (each with the create/edit/toggle actions a `merchant_admin` needs; `merchant_staff` gets read-only views).
+Dashboard routes are session-authenticated and merchant-scoped under `/merchants/{merchant}/...`: `dashboard`, `plans`, `customers`, `subscriptions`, `invoices` (each with the create/edit/toggle actions a `merchant_admin` needs; `merchant_staff` gets read-only views). Subscriptions also expose **Change Plan** (records the mid-cycle change and switches the subscription immediately) and **Generate Invoice** (bills the current period on demand, splitting it into per-plan segments if it contains a plan change).
+
+`php artisan billing:generate-invoices` is the cycle-end counterpart: it finds every active subscription whose period has already ended, dispatches `GenerateInvoiceJob` for the period that just closed, and rolls the subscription into its next period. Intended to run daily via the scheduler alongside the hourly `usage:aggregate`.
 
 ## Prompt Log
 

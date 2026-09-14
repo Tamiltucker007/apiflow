@@ -63,6 +63,27 @@ class SubscriptionService
         return $subscription->fresh();
     }
 
+    /**
+     * Cancels a subscription effective immediately. Usage already recorded
+     * against it, and any invoices already generated, are untouched — this
+     * only stops it from being billed or renewed going forward.
+     */
+    public function cancel(Subscription $subscription): Subscription
+    {
+        if ($subscription->status !== SubscriptionStatus::Active) {
+            throw ValidationException::withMessages([
+                'subscription' => 'This subscription is not active.',
+            ]);
+        }
+
+        $subscription->update([
+            'status' => SubscriptionStatus::Cancelled,
+            'cancelled_at' => now(),
+        ]);
+
+        return $subscription->fresh();
+    }
+
     // Rolls the subscription into its next billing period, using its
     // (possibly just-changed) current plan for the new period's length.
     public function advanceToNextPeriod(Subscription $subscription): Subscription

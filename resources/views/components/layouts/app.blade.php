@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'APIFlow' }}</title>
-    @vite('resources/css/app.css')
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-gray-50 text-gray-900">
     <div class="min-h-screen flex">
@@ -26,14 +26,14 @@
                     $navLink = function (string $routePattern, string $href, string $label, string $iconPath) use ($navIcon) {
                         $active = request()->routeIs($routePattern);
                         $classes = $active
-                            ? 'flex items-center gap-2.5 px-4 py-2 text-white bg-white/10 border-r-2 border-indigo-400'
-                            : 'flex items-center gap-2.5 px-4 py-2 hover:bg-white/5 hover:text-white transition';
+                            ? 'flex items-center gap-2.5 mx-2 px-3 py-2 rounded-lg text-white bg-indigo-500 font-medium shadow-sm'
+                            : 'flex items-center gap-2.5 mx-2 px-3 py-2 rounded-lg text-gray-400 hover:bg-white/5 hover:text-white transition';
 
                         return '<a href="'.$href.'" class="'.$classes.'">'.$navIcon($iconPath).'<span>'.$label.'</span></a>';
                     };
                 @endphp
 
-                <nav class="mt-2 flex flex-col text-sm flex-1">
+                <nav class="mt-2 flex flex-col gap-0.5 text-sm flex-1">
                     @php($merchantId = $user->merchant_id)
                     {!! $navLink('merchants.dashboard', route('merchants.dashboard', $merchantId), 'Dashboard', 'M3 8.5 10 3l7 5.5V17a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1V8.5Z') !!}
                     {!! $navLink('merchants.plans.*', route('merchants.plans.index', $merchantId), 'Plans', 'M4 4h6l7 7-6.5 6.5-7-7V4Z M7.5 7.5h.01') !!}
@@ -43,19 +43,7 @@
                 </nav>
 
                 <div class="border-t border-white/10 px-4 py-3">
-                    <div class="flex items-center gap-2.5 mb-3">
-                        <div class="w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">
-                            {{ strtoupper(substr($user->name, 0, 1)) }}
-                        </div>
-                        <div class="min-w-0">
-                            <p class="text-white text-xs font-medium truncate">{{ $user->name }}</p>
-                            <p class="text-gray-400 text-xs truncate">{{ $user->role->label() }}</p>
-                        </div>
-                    </div>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button type="submit" class="text-xs text-gray-400 hover:text-white transition">Log out</button>
-                    </form>
+                    <p class="text-gray-500 text-xs">FinPay Technologies</p>
                 </div>
             </aside>
         @endauth
@@ -63,13 +51,34 @@
         <div class="flex-1 flex flex-col min-w-0">
             @auth
                 <header class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-6 flex-shrink-0">
-                    <div class="text-sm text-gray-500">
+                    <div class="text-sm font-medium text-gray-700">
                         {{ $title ?? 'APIFlow' }}
                     </div>
-                    <div class="flex items-center gap-2 text-xs text-gray-400">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                        Signed in as {{ $user->email }}
-                    </div>
+
+                    <details class="relative">
+                        <summary class="list-none flex items-center gap-2.5 cursor-pointer select-none">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                            <div class="w-7 h-7 rounded-full bg-indigo-500 text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">
+                                {{ strtoupper(substr($user->name, 0, 1)) }}
+                            </div>
+                            <div class="text-left leading-tight">
+                                <p class="text-xs font-medium text-gray-700">{{ $user->name }}</p>
+                                <p class="text-xs text-gray-400">{{ $user->role->label() }}</p>
+                            </div>
+                        </summary>
+
+                        <div class="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-10">
+                            <div class="px-3 py-2 border-b border-gray-100">
+                                <p class="text-xs text-gray-500 truncate">{{ $user->email }}</p>
+                            </div>
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit" class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                                    Log out
+                                </button>
+                            </form>
+                        </div>
+                    </details>
                 </header>
             @endauth
 
@@ -82,5 +91,7 @@
             </main>
         </div>
     </div>
+
+    @stack('scripts')
 </body>
 </html>

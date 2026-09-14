@@ -10,3 +10,123 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+
+/* Row-action buttons in DataTables columns are built as raw HTML strings
+   server-side (Plan/Customer/Subscription controllers), so they use these
+   semantic classes rather than inline utility classes Tailwind's scanner
+   would never see referenced in a .blade.php/.js file. */
+.action-link {
+    @apply inline-block text-xs font-medium px-2.5 py-1 rounded-md whitespace-nowrap transition border;
+    @apply bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100;
+}
+
+.action-link.action-edit {
+    @apply bg-indigo-50 text-indigo-700 border-indigo-100 hover:bg-indigo-100;
+}
+
+.action-link.action-danger {
+    @apply bg-red-50 text-red-700 border-red-100 hover:bg-red-100;
+}
+
+/* DataTables ships no CSS of its own here (datatables.net core only, no
+   styling integration package) — these rules target its actual generated
+   class names (dt-*, not the legacy dataTables_* names from the jQuery UI
+   styling package) so search/length/pagination match the rest of the UI. */
+.dt-container {
+    @apply flex flex-col gap-0;
+}
+
+.dt-layout-row {
+    @apply flex flex-wrap items-center justify-between gap-3 px-4;
+}
+
+.dt-layout-row:first-child {
+    @apply pb-4;
+}
+
+.dt-layout-row.dt-layout-table {
+    @apply block px-0 border-y border-gray-100;
+}
+
+.dt-layout-row:last-child {
+    @apply pt-4;
+}
+
+.dt-search input {
+    @apply w-56 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition;
+}
+
+.dt-length select {
+    @apply rounded-lg border border-gray-300 px-2 py-1.5 text-sm text-gray-700 shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none;
+}
+
+.dt-length,
+.dt-info {
+    @apply text-xs text-gray-500;
+}
+
+.dt-paging {
+    @apply flex items-center gap-1;
+}
+
+.dt-paging-button {
+    @apply w-7 h-7 flex items-center justify-center rounded-md text-xs font-medium text-gray-600 cursor-pointer select-none hover:bg-gray-100 transition;
+}
+
+.dt-paging-button.current {
+    @apply bg-indigo-600 text-white hover:bg-indigo-600;
+}
+
+.dt-paging-button.disabled {
+    @apply text-gray-300 cursor-not-allowed hover:bg-transparent;
+}
+
+table.dataTable {
+    @apply border-collapse;
+}
+
+table.dataTable thead th {
+    @apply cursor-pointer select-none font-semibold tracking-wide border-b border-gray-200 whitespace-nowrap;
+}
+
+table.dataTable thead th.dt-orderable-asc:hover,
+table.dataTable thead th.dt-orderable-desc:hover {
+    @apply text-gray-700;
+}
+
+table.dataTable thead th.dt-ordering-asc,
+table.dataTable thead th.dt-ordering-desc {
+    @apply text-indigo-600;
+}
+
+table.dataTable thead th.dt-ordering-asc::after {
+    content: ' \2191';
+}
+
+table.dataTable thead th.dt-ordering-desc::after {
+    content: ' \2193';
+}
+
+table.dataTable tbody tr {
+    @apply transition-colors;
+}
+
+table.dataTable tbody tr:nth-child(even) {
+    @apply bg-gray-50/60;
+}
+
+table.dataTable tbody tr:hover {
+    @apply bg-indigo-50/70;
+}
+
+table.dataTable tbody td {
+    @apply align-middle;
+}
+
+.dt-processing {
+    @apply text-center text-xs text-gray-400 py-6;
+}
+
+.dt-empty {
+    @apply px-4 py-10 text-center text-gray-400;
+}

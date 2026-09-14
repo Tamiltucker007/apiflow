@@ -41,60 +41,40 @@
         </div>
     @endif
 
-    <div class="bg-white rounded-lg shadow overflow-x-auto">
-        <table class="w-full text-sm text-left">
+    <div class="bg-white rounded-lg shadow overflow-x-auto pt-4 pb-4">
+        <table id="subscriptions-table" class="w-full text-sm text-left">
             <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
                 <tr>
+                    <th class="px-4 py-3">#</th>
                     <th class="px-4 py-3">Customer</th>
                     <th class="px-4 py-3">Plan</th>
                     <th class="px-4 py-3">Status</th>
                     <th class="px-4 py-3">Current Period</th>
                     @if ($canManage)
-                        <th class="px-4 py-3"></th>
+                        <th class="px-4 py-3 text-right">Actions</th>
                     @endif
                 </tr>
             </thead>
-            <tbody class="divide-y">
-                @forelse ($subscriptions as $subscription)
-                    <tr>
-                        <td class="px-4 py-3 font-medium">{{ $subscription->customer->name }}</td>
-                        <td class="px-4 py-3">{{ $subscription->plan->name }}</td>
-                        <td class="px-4 py-3">
-                            <span class="px-2 py-0.5 rounded text-xs bg-green-100 text-green-700">
-                                {{ $subscription->status->value }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-gray-500">
-                            {{ $subscription->current_period_start->format('d M Y') }} – {{ $subscription->current_period_end->format('d M Y') }}
-                        </td>
-                        @if ($canManage)
-                            <td class="px-4 py-3">
-                                <div class="flex items-center justify-end gap-3">
-                                    <form method="POST" action="{{ route('merchants.subscriptions.generate-invoice', [$merchant, $subscription]) }}">
-                                        @csrf
-                                        <button class="text-indigo-600 hover:underline text-xs whitespace-nowrap">Generate Invoice</button>
-                                    </form>
-
-                                    <form method="POST" action="{{ route('merchants.subscriptions.change-plan', [$merchant, $subscription]) }}" class="flex items-center gap-1">
-                                        @csrf
-                                        @method('PUT')
-                                        <select name="plan_id" class="rounded border-gray-300 text-xs py-1 focus:border-indigo-500 focus:ring-indigo-500">
-                                            @foreach ($plans as $plan)
-                                                <option value="{{ $plan->id }}" @selected($plan->id === $subscription->plan_id)>{{ $plan->name }}</option>
-                                            @endforeach
-                                        </select>
-                                        <button class="text-indigo-600 hover:underline text-xs whitespace-nowrap">Change</button>
-                                    </form>
-                                </div>
-                            </td>
-                        @endif
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="{{ $canManage ? 5 : 4 }}" class="px-4 py-6 text-center text-gray-400">No subscriptions yet.</td>
-                    </tr>
-                @endforelse
-            </tbody>
+            <tbody class="divide-y"></tbody>
         </table>
     </div>
+
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const columns = [
+                    window.dtSerialColumn(),
+                    { data: 'customer_name', className: 'px-4 py-3 font-medium' },
+                    { data: 'plan_name', className: 'px-4 py-3' },
+                    { data: 'status_badge', className: 'px-4 py-3', searchable: false, orderable: false },
+                    { data: 'period', className: 'px-4 py-3 text-gray-500', searchable: false, orderable: false },
+                    @if ($canManage)
+                        { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },
+                    @endif
+                ];
+
+                window.initDataTable('#subscriptions-table', '{{ route('merchants.subscriptions.data', $merchant) }}', columns, [[1, 'asc']]);
+            });
+        </script>
+    @endpush
 </x-layouts.app>

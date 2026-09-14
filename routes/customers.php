@@ -10,10 +10,14 @@ use Illuminate\Support\Facades\Route;
 // merchant_staff can view; registering customers or managing keys needs admin rights.
 // Static "create" segment must be registered before the {customer} wildcard below.
 Route::get('customers', [CustomerController::class, 'index'])->name('customers.index');
+Route::get('customers/data', [CustomerController::class, 'data'])->name('customers.data');
 
 Route::middleware('role:'.UserRole::MerchantAdmin->value)->group(function () {
     Route::get('customers/create', [CustomerController::class, 'create'])->name('customers.create');
     Route::post('customers', [CustomerController::class, 'store'])->name('customers.store');
+    Route::get('customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
+    Route::put('customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
+    Route::delete('customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
 
     Route::post('customers/{customer}/api-keys', [ApiCredentialController::class, 'store'])->name('customers.api-keys.store');
     Route::delete('customers/{customer}/api-keys/{credential}', [ApiCredentialController::class, 'destroy'])->name('customers.api-keys.destroy');

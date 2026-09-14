@@ -9,7 +9,12 @@ use App\Http\Controllers\SubscriptionController;
 use Illuminate\Support\Facades\Route;
 
 // Grouped by access level: guest auth, per-tenant (/merchants/{merchant}).
-Route::redirect('/', '/login')->name('home');
+// Deliberately unnamed: Laravel's RedirectIfAuthenticated middleware treats a
+// route named 'home' as its default post-login redirect target, which would
+// send an authenticated user straight back into this same redirect -> /login
+// -> back here -> infinite loop. AppServiceProvider overrides that target
+// explicitly instead (see RedirectIfAuthenticated::redirectUsing()).
+Route::redirect('/', '/login');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
@@ -22,8 +27,11 @@ Route::middleware('auth')->group(function () {
     Route::prefix('merchants/{merchant}')->name('merchants.')->middleware('merchant.access')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'merchant'])->name('dashboard');
         Route::get('plans', [PlanController::class, 'index'])->name('plans.index');
+        Route::get('plans/data', [PlanController::class, 'data'])->name('plans.data');
         Route::get('subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
+        Route::get('subscriptions/data', [SubscriptionController::class, 'data'])->name('subscriptions.data');
         Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('invoices/data', [InvoiceController::class, 'data'])->name('invoices.data');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
 
         require __DIR__.'/customers.php';
@@ -32,11 +40,15 @@ Route::middleware('auth')->group(function () {
         Route::middleware('role:'.UserRole::MerchantAdmin->value)->group(function () {
             Route::get('plans/create', [PlanController::class, 'create'])->name('plans.create');
             Route::post('plans', [PlanController::class, 'store'])->name('plans.store');
+            Route::get('plans/{plan}/edit', [PlanController::class, 'edit'])->name('plans.edit');
+            Route::put('plans/{plan}', [PlanController::class, 'update'])->name('plans.update');
             Route::put('plans/{plan}/toggle', [PlanController::class, 'toggle'])->name('plans.toggle');
+            Route::delete('plans/{plan}', [PlanController::class, 'destroy'])->name('plans.destroy');
 
             Route::post('subscriptions', [SubscriptionController::class, 'store'])->name('subscriptions.store');
             Route::put('subscriptions/{subscription}/change-plan', [SubscriptionController::class, 'changePlan'])->name('subscriptions.change-plan');
             Route::post('subscriptions/{subscription}/generate-invoice', [SubscriptionController::class, 'generateInvoice'])->name('subscriptions.generate-invoice');
+            Route::delete('subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
         });
     });
 });
