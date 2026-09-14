@@ -5,7 +5,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\SubscriptionController;
-use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 // Merchant admin area — "/admin" prefix + "admin." names, guard "web".
@@ -31,7 +30,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
             Route::get('subscriptions', [SubscriptionController::class, 'index'])->name('subscriptions.index');
             Route::get('subscriptions/data', [SubscriptionController::class, 'data'])->name('subscriptions.data');
-            Route::post('subscriptions', [SubscriptionController::class, 'store'])->name('subscriptions.store');
             Route::put('subscriptions/{subscription}/change-plan', [SubscriptionController::class, 'changePlan'])->name('subscriptions.change-plan');
             Route::post('subscriptions/{subscription}/generate-invoice', [SubscriptionController::class, 'generateInvoice'])->name('subscriptions.generate-invoice');
             Route::delete('subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
@@ -42,11 +40,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::get('invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
 
             require __DIR__.'/admin-customers.php';
-
-            // Team management — who can log in, not business data.
-            Route::get('users/data', [UserController::class, 'data'])->name('users.data');
-            Route::put('users/{user}/toggle', [UserController::class, 'toggle'])->name('users.toggle');
-            Route::resource('users', UserController::class)->except(['show', 'destroy']);
         });
     });
 });

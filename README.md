@@ -264,13 +264,13 @@ The first three are each gated to one merchant (`$customer->merchant->slug` chec
 
 **Invoice PDFs, three ways:** merchant dashboard (`/admin/merchants/{merchant}/invoices/{invoice}/download`), the API routes above (own key), or the customer portal (`/invoices/{invoice}/download`) — all three render through the same `InvoicePdfService`, and both non-admin routes check `invoice->customer_id` against the caller before rendering.
 
-**Customer routes** (`routes/customer-portal.php`, guard `customer`, no URL prefix): `/login`, `/logout`, `/dashboard`, `/plans/choose`, `/invoices/{invoice}` (+ `/download`), `/register`, `/register/{merchant:slug}`.
+**Customer routes** (`routes/customer-portal.php`, guard `customer`, no URL prefix): `/login`, `/logout`, `/dashboard`, `/subscription` (+ `/subscription/change-plan`), `/usage`, `/invoices` (+ `/{invoice}`, `/{invoice}/download`), `/profile` (+ `/profile/password`), `/plans/choose` (first subscribe only — `/subscription/change-plan` handles switching afterward), `/register`, `/register/{merchant:slug}`.
 
-**Admin routes** (`routes/admin.php`, guard `web`, prefix `/admin` + name prefix `admin.`): `/admin/login`, `/admin/logout`, then everything merchant-scoped under `/admin/merchants/{merchant}/...` — `dashboard`, `plans`, `customers`, `subscriptions`, `invoices`, `users` (Team).
+The portal's top nav (Home / Subscription / Usage Details / Invoices) plus a profile dropdown (Profile & Account, Log out) ties these together, full-width like the admin side. Dashboard, `/subscription`, and `/usage` all read from `SubscriptionUsageSnapshot` (used-units, overage, 90%/100% usage alerts, 30-day trend) so they can never disagree on the numbers — one service, several views of it.
 
-Every merchant user has full create/edit/toggle access on Plans/Customers/Subscriptions. Subscriptions also expose **Change Plan** and **Generate Invoice** (on-demand billing, split into segments if it spans a plan change). Invoices stay read-only — they're a record of what was billed, not something to edit after the fact.
+**Admin routes** (`routes/admin.php`, guard `web`, prefix `/admin` + name prefix `admin.`): `/admin/login`, `/admin/logout`, then everything merchant-scoped under `/admin/merchants/{merchant}/...` — `dashboard`, `plans`, `customers`, `subscriptions`, `invoices`.
 
-The Team module lets a merchant user manage teammates. Guards: a user can't deactivate their own account, and the last active user for a merchant can't be deactivated while no other exists.
+Every merchant user has full create/edit/toggle access on Plans/Customers. Subscriptions are admin-managed but not admin-*created* — customers subscribe themselves via the portal; the admin side only views, **Changes Plan**, **Cancels**, or triggers **Generate Invoice** (on-demand billing, split into segments if it spans a plan change). Invoices stay read-only — they're a record of what was billed, not something to edit after the fact.
 
 `php artisan billing:generate-invoices` is the cycle-end counterpart to the hourly aggregation: finds every subscription whose period ended, generates its invoice, rolls it to the next period. Meant to run daily via the scheduler.
 

@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Enums\SubscriptionStatus;
 use App\Http\Requests\ChangePlanRequest;
-use App\Http\Requests\CreateSubscriptionRequest;
-use App\Models\Customer;
 use App\Models\Merchant;
 use App\Models\Plan;
 use App\Models\Subscription;
@@ -25,11 +23,7 @@ class SubscriptionController extends Controller
 
     public function index(Merchant $merchant): View
     {
-        return view('subscriptions.index', [
-            'merchant' => $merchant,
-            'customers' => $merchant->customers()->orderBy('name')->get(),
-            'plans' => $merchant->plans()->active()->orderBy('name')->get(),
-        ]);
+        return view('subscriptions.index', ['merchant' => $merchant]);
     }
 
     public function data(Merchant $merchant): JsonResponse
@@ -44,9 +38,13 @@ class SubscriptionController extends Controller
 
         return DataTables::of($query)
             ->addColumn('status_badge', function (Subscription $s) {
-                $classes = $s->status === SubscriptionStatus::Active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
+                $classes = match ($s->status) {
+                    SubscriptionStatus::Active => 'bg-green-100 text-green-700',
+                    SubscriptionStatus::Cancelled => 'bg-red-100 text-red-700',
+                    SubscriptionStatus::Expired => 'bg-gray-100 text-gray-500',
+                };
 
-                return '<span class="px-2 py-0.5 rounded text-xs '.$classes.'">'.$s->status->value.'</span>';
+                return '<span class="px-2 py-0.5 rounded text-xs font-medium '.$classes.'">'.ucfirst($s->status->value).'</span>';
             })
             ->addColumn('period', fn (Subscription $s) => $s->current_period_start->format('d M Y').' – '.$s->current_period_end->format('d M Y'))
             ->addColumn('actions', function (Subscription $s) use ($merchant, $plans) {
@@ -81,19 +79,6 @@ class SubscriptionController extends Controller
             ->filterColumn('plan_name', fn ($query, $keyword) => $query->where('plans.name', 'like', "%{$keyword}%"))
             ->rawColumns(['status_badge', 'actions'])
             ->make(true);
-    }
-
-    public function store(CreateSubscriptionRequest $request, Merchant $merchant): RedirectResponse
-    {
-        $customer = Customer::findOrFail($request->validated('customer_id'));
-        $plan = Plan::findOrFail($request->validated('plan_id'));
-        $this->ensureBelongsToMerchant($customer, $merchant);
-        $this->ensureBelongsToMerchant($plan, $merchant);
-
-        $this->subscriptions->subscribe($customer, $plan);
-
-        return redirect()->route('admin.subscriptions.index', $merchant)
-            ->with('status', 'Subscription created.');
     }
 
     public function changePlan(ChangePlanRequest $request, Merchant $merchant, Subscription $subscription): RedirectResponse

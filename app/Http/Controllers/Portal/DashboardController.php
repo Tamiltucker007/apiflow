@@ -4,16 +4,14 @@ namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
-use App\Models\DailyUsage;
-use App\Services\PlanPricingService;
-use Carbon\Carbon;
+use App\Services\SubscriptionUsageSnapshot;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __construct(private PlanPricingService $pricing) {}
+    public function __construct(private SubscriptionUsageSnapshot $usage) {}
 
     // Deliberately queries directly rather than reusing DashboardService:
     // that service aggregates across a merchant's whole customer base for
@@ -34,45 +32,19 @@ class DashboardController extends Controller
             return redirect()->route('plans.choose');
         }
 
-        $plan = $this->pricing->getCachedPlan($subscription->plan_id);
+        $snapshot = $this->usage->forSubscription($subscription);
 
-        $usedUnits = (int) DailyUsage::where('subscription_id', $subscription->id)
-            ->whereBetween('usage_date', [$subscription->current_period_start, $subscription->current_period_end])
-            ->sum('total_units');
-
-        $overageUnits = max(0, $usedUnits - $plan->included_units);
-
-        $invoices = $customer->invoices()->latest('issued_at')->take(10)->get();
-
-        $usageTrend = $this->dailyUsageTrend($subscription->id);
+        $invoices = $customer->invoices()->latest('issued_at')->take(5)->get();
 
         return view('portal.dashboard', [
             'customer' => $customer,
             'subscription' => $subscription,
-            'plan' => $plan,
-            'usedUnits' => $usedUnits,
-            'overageUnits' => $overageUnits,
+            'plan' => $snapshot['plan'],
+            'usedUnits' => $snapshot['usedUnits'],
+            'overageUnits' => $snapshot['overageUnits'],
+            'percentage' => $snapshot['percentage'],
             'invoices' => $invoices,
-            'usageTrend' => $usageTrend,
+            'usageTrend' => $this->usage->dailyTrend($subscription->id),
         ]);
-    }
-
-    // Same shape as DashboardService::getDailyUsageTrend() (30 days, zero-
-    // filled gaps so the bar chart never has a hole for a day with no
-    // recorded usage) but scoped to one subscription instead of a merchant's
-    // whole customer base.
-    private function dailyUsageTrend(int $subscriptionId, int $days = 30)
-    {
-        $start = Carbon::today()->subDays($days - 1);
-
-        $rows = DailyUsage::where('subscription_id', $subscriptionId)
-            ->where('usage_date', '>=', $start->toDateString())
-            ->pluck('total_units', 'usage_date');
-
-        return collect(range(0, $days - 1))->map(function ($offset) use ($start, $rows) {
-            $date = $start->copy()->addDays($offset)->toDateString();
-
-            return ['date' => $date, 'units' => (int) ($rows[$date] ?? 0)];
-        });
     }
 }

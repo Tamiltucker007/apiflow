@@ -162,4 +162,191 @@ class CustomerPortalTest extends TestCase
         $response->assertSee('No password set');
         $response->assertSee('Enable Portal Access');
     }
+
+    public function test_the_dashboard_warns_at_90_percent_usage(): void
+    {
+        [$customer, $subscription] = $this->subscribedCustomerWithUsage(includedUnits: 1000, usedUnits: 900);
+
+        $response = $this->actingAs($customer, 'customer')->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('90%');
+        $response->assertSee('close to the limit');
+    }
+
+    public function test_the_subscription_page_shows_plan_details(): void
+    {
+        [$customer, $subscription] = $this->subscribedCustomerWithUsage(includedUnits: 1000, usedUnits: 400, planName: 'Growth');
+
+        $response = $this->actingAs($customer, 'customer')->get(route('subscription'));
+
+        $response->assertOk();
+        $response->assertSee('Growth');
+        $response->assertSee('Next Billing Date');
+    }
+
+    public function test_a_customer_with_no_active_subscription_is_redirected_away_from_the_subscription_page(): void
+    {
+        $customer = Customer::factory()->for(Merchant::factory())->create(['password' => bcrypt('secret')]);
+
+        $response = $this->actingAs($customer, 'customer')->get(route('subscription'));
+
+        $response->assertRedirect(route('plans.choose'));
+    }
+
+    public function test_a_customer_can_change_their_own_plan(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $currentPlan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Monthly]);
+        $newPlan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Monthly]);
+        $customer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+        $subscription = Subscription::factory()->for($merchant)->create([
+            'customer_id' => $customer->id,
+            'plan_id' => $currentPlan->id,
+        ]);
+
+        $response = $this->actingAs($customer, 'customer')
+            ->put(route('subscription.change-plan'), ['plan_id' => $newPlan->id]);
+
+        $response->assertRedirect(route('subscription'));
+        $this->assertSame($newPlan->id, $subscription->fresh()->plan_id);
+    }
+
+    public function test_a_customer_cannot_change_to_another_merchants_plan(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $currentPlan = Plan::factory()->for($merchant)->create();
+        $customer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+        $subscription = Subscription::factory()->for($merchant)->create([
+            'customer_id' => $customer->id,
+            'plan_id' => $currentPlan->id,
+        ]);
+        $foreignPlan = Plan::factory()->for(Merchant::factory())->create();
+
+        $response = $this->actingAs($customer, 'customer')
+            ->put(route('subscription.change-plan'), ['plan_id' => $foreignPlan->id]);
+
+        $response->assertSessionHasErrors('plan_id');
+        $this->assertSame($currentPlan->id, $subscription->fresh()->plan_id);
+    }
+
+    public function test_the_usage_page_shows_usage_details_and_trend(): void
+    {
+        [$customer, $subscription] = $this->subscribedCustomerWithUsage(includedUnits: 1000, usedUnits: 400, planName: 'Growth');
+
+        $response = $this->actingAs($customer, 'customer')->get(route('usage'));
+
+        $response->assertOk();
+        $response->assertSee('400');
+        $response->assertSee('Daily Usage Trend');
+    }
+
+    public function test_a_customer_with_no_active_subscription_is_redirected_away_from_the_usage_page(): void
+    {
+        $customer = Customer::factory()->for(Merchant::factory())->create(['password' => bcrypt('secret')]);
+
+        $response = $this->actingAs($customer, 'customer')->get(route('usage'));
+
+        $response->assertRedirect(route('plans.choose'));
+    }
+
+    public function test_the_invoices_index_page_lists_the_customers_invoices(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $plan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Monthly]);
+        $customer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+        $subscription = Subscription::factory()->for($merchant)->create([
+            'customer_id' => $customer->id,
+            'plan_id' => $plan->id,
+            'current_period_start' => '2026-01-01',
+            'current_period_end' => '2026-01-31',
+        ]);
+        $invoice = app(BillingService::class)->generateInvoice($subscription);
+
+        $response = $this->actingAs($customer, 'customer')->get(route('invoices.index'));
+
+        $response->assertOk();
+        $response->assertSee($invoice->invoice_number);
+    }
+
+    public function test_the_invoices_index_page_shows_an_empty_state_with_no_invoices(): void
+    {
+        $customer = Customer::factory()->for(Merchant::factory())->create(['password' => bcrypt('secret')]);
+
+        $response = $this->actingAs($customer, 'customer')->get(route('invoices.index'));
+
+        $response->assertOk();
+        $response->assertSee('No invoices yet');
+    }
+
+    public function test_the_profile_page_shows_account_details(): void
+    {
+        $merchant = Merchant::factory()->create(['name' => 'Acme Corp']);
+        $customer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+
+        $response = $this->actingAs($customer, 'customer')->get(route('profile'));
+
+        $response->assertOk();
+        $response->assertSee($customer->email);
+        $response->assertSee('Acme Corp');
+    }
+
+    public function test_a_customer_can_change_their_own_password(): void
+    {
+        $customer = Customer::factory()->for(Merchant::factory())->create(['password' => bcrypt('old-password')]);
+
+        $response = $this->actingAs($customer, 'customer')->put(route('profile.password.update'), [
+            'current_password' => 'old-password',
+            'password' => 'new-password-123',
+            'password_confirmation' => 'new-password-123',
+        ]);
+
+        $response->assertRedirect(route('profile'));
+
+        Auth::guard('customer')->logout();
+        $this->post('/login', ['email' => $customer->email, 'password' => 'new-password-123'])
+            ->assertRedirect(route('dashboard'));
+    }
+
+    public function test_changing_password_requires_the_correct_current_password(): void
+    {
+        $customer = Customer::factory()->for(Merchant::factory())->create(['password' => bcrypt('old-password')]);
+
+        $response = $this->actingAs($customer, 'customer')->put(route('profile.password.update'), [
+            'current_password' => 'wrong-password',
+            'password' => 'new-password-123',
+            'password_confirmation' => 'new-password-123',
+        ]);
+
+        $response->assertSessionHasErrors('current_password');
+    }
+
+    /**
+     * @return array{0: Customer, 1: Subscription}
+     */
+    private function subscribedCustomerWithUsage(int $includedUnits, int $usedUnits, string $planName = 'Plan'): array
+    {
+        $merchant = Merchant::factory()->create();
+        $plan = Plan::factory()->for($merchant)->create([
+            'name' => $planName,
+            'included_units' => $includedUnits,
+            'billing_cycle' => BillingCycle::Monthly,
+        ]);
+        $customer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+        $subscription = Subscription::factory()->for($merchant)->create([
+            'customer_id' => $customer->id,
+            'plan_id' => $plan->id,
+            'current_period_start' => now()->startOfMonth(),
+            'current_period_end' => now()->endOfMonth(),
+        ]);
+        DailyUsage::create([
+            'merchant_id' => $merchant->id,
+            'customer_id' => $customer->id,
+            'subscription_id' => $subscription->id,
+            'usage_date' => now()->toDateString(),
+            'total_units' => $usedUnits,
+        ]);
+
+        return [$customer, $subscription];
+    }
 }

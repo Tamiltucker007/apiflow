@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Models\Customer;
 use App\Models\Invoice;
 use App\Services\InvoicePdfService;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,16 @@ use Symfony\Component\HttpFoundation\Response;
 
 class InvoiceController extends Controller
 {
+    public function index(): View
+    {
+        /** @var Customer $customer */
+        $customer = Auth::guard('customer')->user();
+
+        $invoices = $customer->invoices()->with('subscription.plan')->latest('issued_at')->get();
+
+        return view('portal.invoices', ['invoices' => $invoices]);
+    }
+
     // No merchant/tenant route param here — a portal request is scoped to
     // exactly the logged-in customer, and every lookup below is filtered by
     // that customer's own id, not route-model-bound. A customer requesting

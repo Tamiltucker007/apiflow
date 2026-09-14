@@ -1,5 +1,4 @@
 @php
-    $percentage = $plan->included_units > 0 ? min(100, (int) round($usedUnits / $plan->included_units * 100)) : 0;
     $maxTrend = max(1, $usageTrend->max('units'));
 
     // Semantic color (amber = "pay attention") stays fixed regardless of
@@ -7,13 +6,6 @@
     // for every merchant, so it shouldn't blend into whichever brand color
     // that merchant happens to have.
     $usageColor = $percentage >= 100 ? '#f59e0b' : 'var(--brand-from)';
-
-    $statusStyles = [
-        'draft' => 'bg-gray-100 text-gray-600',
-        'pending' => 'bg-amber-100 text-amber-700',
-        'paid' => 'bg-emerald-100 text-emerald-700',
-        'failed' => 'bg-red-100 text-red-700',
-    ];
 @endphp
 
 <x-layouts.portal title="Dashboard">
@@ -30,6 +22,16 @@
         </div>
     </div>
 
+    @if ($percentage >= 100)
+        <x-alert type="error" class="mb-6">
+            You've used up your plan's included units — every additional unit this cycle is billed at the overage rate.
+        </x-alert>
+    @elseif ($percentage >= 90)
+        <x-alert type="warning" class="mb-6">
+            You've used {{ $percentage }}% of this cycle's included units — you're close to the limit.
+        </x-alert>
+    @endif
+
     <div class="grid sm:grid-cols-3 gap-4 mb-6">
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <div class="flex items-center gap-3 mb-3">
@@ -41,9 +43,12 @@
                 </div>
                 <p class="text-xs text-gray-500 uppercase tracking-wide">Active Plan</p>
             </div>
-            <p class="text-lg font-semibold text-gray-900">{{ $plan->name }}</p>
+            <div class="flex items-center gap-2">
+                <p class="text-lg font-semibold text-gray-900">{{ $plan->name }}</p>
+                <span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700 capitalize">{{ $subscription->status->value }}</span>
+            </div>
             <p class="text-xs text-gray-400 mt-1">
-                {{ $subscription->current_period_start->format('d M') }} – {{ $subscription->current_period_end->format('d M Y') }}
+                Renews {{ $subscription->current_period_end->format('d M Y') }}
             </p>
         </div>
 
@@ -79,7 +84,10 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-        <h2 class="text-sm font-semibold text-gray-700 mb-4">Daily Usage Trend (last 30 days)</h2>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-4">
+            <h2 class="text-sm font-semibold text-gray-700">Daily Usage Trend (last 30 days)</h2>
+            <a href="{{ route('usage') }}" class="text-xs font-medium hover:underline flex-shrink-0" style="color: var(--brand-from)">Full usage details &rarr;</a>
+        </div>
         <div class="flex items-end gap-0.5 h-24">
             @foreach ($usageTrend as $day)
                 <div class="flex-1 rounded-t transition"
@@ -94,8 +102,9 @@
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="px-5 py-3.5 border-b border-gray-100">
-            <h2 class="text-sm font-semibold text-gray-700">Invoices</h2>
+        <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold text-gray-700">Recent Invoices</h2>
+            <a href="{{ route('invoices.index') }}" class="text-xs font-medium hover:underline flex-shrink-0" style="color: var(--brand-from)">View all &rarr;</a>
         </div>
         <div class="overflow-x-auto">
         <table class="w-full text-sm text-left">
@@ -116,7 +125,7 @@
                         </td>
                         <td class="px-5 py-3 text-gray-500">{{ $invoice->period_start->format('d M') }} – {{ $invoice->period_end->format('d M Y') }}</td>
                         <td class="px-5 py-3">
-                            <span class="px-2 py-0.5 rounded text-xs capitalize {{ $statusStyles[$invoice->status->value] ?? 'bg-gray-100 text-gray-600' }}">{{ $invoice->status->value }}</span>
+                            <x-portal.invoice-status :status="$invoice->status" />
                         </td>
                         <td class="px-5 py-3 text-right font-medium text-gray-900">{{ \App\Support\Money::format($invoice->total_amount_cents, $invoice->currency) }}</td>
                         <td class="px-5 py-3 text-right">
