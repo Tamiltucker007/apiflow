@@ -23,7 +23,7 @@ class StoreCustomerRequest extends FormRequest
                 'email',
                 Rule::unique('customers', 'email')->where('merchant_id', $merchant->id),
             ],
-            'external_id' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:30'],
         ];
     }
 }

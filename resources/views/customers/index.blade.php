@@ -20,7 +20,7 @@
                     <th class="px-4 py-3">#</th>
                     <th class="px-4 py-3">Name</th>
                     <th class="px-4 py-3">Email</th>
-                    <th class="px-4 py-3">External ID</th>
+                    <th class="px-4 py-3">Phone</th>
                     <th class="px-4 py-3">Registered</th>
                     @if ($canManage)
                         <th class="px-4 py-3 text-right">Actions</th>
@@ -38,7 +38,7 @@
                     window.dtSerialColumn(),
                     { data: 'name_link', className: 'px-4 py-3 font-medium' },
                     { data: 'email', className: 'px-4 py-3' },
-                    { data: 'external_id_fmt', className: 'px-4 py-3 text-gray-500', searchable: false, orderable: false },
+                    { data: 'phone_fmt', className: 'px-4 py-3 text-gray-500', searchable: false, orderable: false },
                     { data: 'registered', className: 'px-4 py-3 text-gray-500', searchable: false, orderable: false },
                     @if ($canManage)
                         { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },

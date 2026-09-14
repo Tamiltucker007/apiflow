@@ -14,7 +14,7 @@ class CustomerService
             'merchant_id' => $merchant->id,
             'name' => $data['name'],
             'email' => $data['email'],
-            'external_id' => $data['external_id'] ?? null,
+            'phone' => $data['phone'] ?? null,
         ]);
     }
 
@@ -23,7 +23,7 @@ class CustomerService
         $customer->update([
             'name' => $data['name'],
             'email' => $data['email'],
-            'external_id' => $data['external_id'] ?? null,
+            'phone' => $data['phone'] ?? null,
         ]);
 
         return $customer;

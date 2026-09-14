@@ -9,7 +9,11 @@
                 {{ $invoice->period_start->format('d M Y') }} – {{ $invoice->period_end->format('d M Y') }}
             </p>
         </div>
-        <span class="px-3 py-1 rounded-full text-xs bg-amber-100 text-amber-700">{{ $invoice->status->value }}</span>
+        <div class="flex items-center gap-3">
+            <span class="px-3 py-1 rounded-full text-xs bg-amber-100 text-amber-700">{{ $invoice->status->value }}</span>
+            <a href="{{ route('merchants.invoices.download', [$merchant, $invoice]) }}"
+                class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700">Download PDF</a>
+        </div>
     </div>
 
     <div class="bg-white rounded-lg shadow overflow-hidden mb-6">

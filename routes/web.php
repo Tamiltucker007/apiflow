@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\SubscriptionController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 // Grouped by access level: guest auth, per-tenant (/merchants/{merchant}).
@@ -33,6 +34,7 @@ Route::middleware('auth')->group(function () {
         Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
         Route::get('invoices/data', [InvoiceController::class, 'data'])->name('invoices.data');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
+        Route::get('invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
 
         require __DIR__.'/customers.php';
 
@@ -49,6 +51,17 @@ Route::middleware('auth')->group(function () {
             Route::put('subscriptions/{subscription}/change-plan', [SubscriptionController::class, 'changePlan'])->name('subscriptions.change-plan');
             Route::post('subscriptions/{subscription}/generate-invoice', [SubscriptionController::class, 'generateInvoice'])->name('subscriptions.generate-invoice');
             Route::delete('subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancel'])->name('subscriptions.cancel');
+
+            // Team management — admin-only end to end (unlike Plans/Customers/
+            // Subscriptions, staff don't get read access here either: this is
+            // who can log in and with what access, not business data).
+            Route::get('users', [UserController::class, 'index'])->name('users.index');
+            Route::get('users/data', [UserController::class, 'data'])->name('users.data');
+            Route::get('users/create', [UserController::class, 'create'])->name('users.create');
+            Route::post('users', [UserController::class, 'store'])->name('users.store');
+            Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+            Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
+            Route::put('users/{user}/toggle', [UserController::class, 'toggle'])->name('users.toggle');
         });
     });
 });

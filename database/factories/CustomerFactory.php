@@ -16,7 +16,7 @@ class CustomerFactory extends Factory
             'merchant_id' => Merchant::factory(),
             'name' => fake()->unique()->company(),
             'email' => fake()->unique()->companyEmail(),
-            'external_id' => null,
+            'phone' => null,
             'metadata' => null,
         ];
     }

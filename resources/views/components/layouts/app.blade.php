@@ -40,6 +40,9 @@
                     {!! $navLink('merchants.customers.*', route('merchants.customers.index', $merchantId), 'Customers', 'M13 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 17c0-2.8 2.7-5 6-5s6 2.2 6 5') !!}
                     {!! $navLink('merchants.subscriptions.*', route('merchants.subscriptions.index', $merchantId), 'Subscriptions', 'M4 4v4h4M16 16v-4h-4M4.5 10a5.5 5.5 0 0 1 9.4-3.9L16 8M15.5 10a5.5 5.5 0 0 1-9.4 3.9L4 12') !!}
                     {!! $navLink('merchants.invoices.*', route('merchants.invoices.index', $merchantId), 'Invoices', 'M6 3h8l2 2v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM7.5 8h5M7.5 11h5M7.5 14h3') !!}
+                    @if ($user->role !== \App\Enums\UserRole::MerchantStaff)
+                        {!! $navLink('merchants.users.*', route('merchants.users.index', $merchantId), 'Team', 'M13 8a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 17c0-2.5 2.5-4.5 6-4.5s6 2 6 4.5M15 4.5a3 3 0 0 1 0 5.8M17.5 17c0-2-1.3-3.7-3.3-4.3') !!}
+                    @endif
                 </nav>
 
                 <div class="border-t border-white/10 px-4 py-3">

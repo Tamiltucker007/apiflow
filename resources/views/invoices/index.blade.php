@@ -11,6 +11,7 @@
                     <th class="px-4 py-3">Period</th>
                     <th class="px-4 py-3">Total</th>
                     <th class="px-4 py-3">Status</th>
+                    <th class="px-4 py-3 text-right">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y"></tbody>
@@ -27,6 +28,7 @@
                     { data: 'period', className: 'px-4 py-3 text-gray-500', searchable: false, orderable: false },
                     { data: 'total', className: 'px-4 py-3', searchable: false, orderable: false },
                     { data: 'status_badge', className: 'px-4 py-3', searchable: false, orderable: false },
+                    { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },
                 ];
 
                 window.initDataTable('#invoices-table', '{{ route('merchants.invoices.data', $merchant) }}', columns, [[1, 'desc']]);

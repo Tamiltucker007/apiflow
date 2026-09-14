@@ -35,7 +35,7 @@ class CustomerController extends Controller
 
                 return '<a href="'.$url.'" class="text-indigo-600 hover:underline">'.e($customer->name).'</a>';
             })
-            ->addColumn('external_id_fmt', fn (Customer $customer) => $customer->external_id ?? '—')
+            ->addColumn('phone_fmt', fn (Customer $customer) => $customer->phone ?? '—')
             ->addColumn('registered', fn (Customer $customer) => $customer->created_at->format('d M Y'))
             ->addColumn('actions', function (Customer $customer) use ($merchant, $canManage) {
                 if (! $canManage) {

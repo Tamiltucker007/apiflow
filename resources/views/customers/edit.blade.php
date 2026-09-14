@@ -15,7 +15,7 @@
 
                 <x-input label="Email" name="email" type="email" value="{{ old('email', $customer->email) }}" required />
 
-                <x-input label="External ID (optional)" name="external_id" value="{{ old('external_id', $customer->external_id) }}" />
+                <x-input label="Contact Number (optional)" name="phone" type="tel" value="{{ old('phone', $customer->phone) }}" />
             </div>
 
             <div class="mt-6 flex items-center gap-3">

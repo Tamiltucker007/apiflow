@@ -14,7 +14,7 @@
 
                 <x-input label="Email" name="email" type="email" value="{{ old('email') }}" required />
 
-                <x-input label="External ID (optional)" name="external_id" value="{{ old('external_id') }}" />
+                <x-input label="Contact Number (optional)" name="phone" type="tel" value="{{ old('phone') }}" />
             </div>
 
             <button type="submit" class="mt-6 bg-indigo-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition">

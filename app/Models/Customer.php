@@ -15,7 +15,7 @@ class Customer extends Model
         'merchant_id',
         'name',
         'email',
-        'external_id',
+        'phone',
         'metadata',
     ];
 
