@@ -20,11 +20,29 @@ class PlanService
             'billing_cycle' => $data['billing_cycle'],
             'included_units' => $data['included_units'],
             'overage_rate_cents' => $data['overage_rate_cents'],
+            'max_subscribers' => $data['max_subscribers'] ?? null,
         ]);
     }
 
+    /**
+     * Refuses to lower max_subscribers below the plan's current active
+     * subscriber count — that would leave existing subscribers over the
+     * limit the plan claims to enforce.
+     */
     public function update(Plan $plan, array $data): Plan
     {
+        $newLimit = $data['max_subscribers'] ?? null;
+
+        if ($newLimit !== null) {
+            $activeCount = $plan->activeSubscriptionsCount();
+
+            if ($newLimit < $activeCount) {
+                throw ValidationException::withMessages([
+                    'max_subscribers' => "This plan has {$activeCount} active subscriber(s) — the limit cannot be set below that.",
+                ]);
+            }
+        }
+
         $plan->update([
             'name' => $data['name'],
             'base_price_cents' => $data['base_price_cents'],
@@ -32,6 +50,7 @@ class PlanService
             'billing_cycle' => $data['billing_cycle'],
             'included_units' => $data['included_units'],
             'overage_rate_cents' => $data['overage_rate_cents'],
+            'max_subscribers' => $newLimit,
         ]);
 
         return $plan;

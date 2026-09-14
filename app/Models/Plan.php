@@ -21,6 +21,7 @@ class Plan extends Model
         'billing_cycle',
         'included_units',
         'overage_rate_cents',
+        'max_subscribers',
         'is_active',
     ];
 
@@ -31,6 +32,7 @@ class Plan extends Model
             'base_price_cents' => 'integer',
             'included_units' => 'integer',
             'overage_rate_cents' => 'integer',
+            'max_subscribers' => 'integer',
             'is_active' => 'boolean',
         ];
     }
@@ -44,5 +46,21 @@ class Plan extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true);
+    }
+
+    public function activeSubscriptionsCount(): int
+    {
+        return $this->subscriptions()->where('status', 'active')->count();
+    }
+
+    // True once active subscriptions reach 90% of max_subscribers. Always
+    // false when max_subscribers is null (unlimited).
+    public function isNearSubscriberLimit(): bool
+    {
+        if ($this->max_subscribers === null) {
+            return false;
+        }
+
+        return $this->activeSubscriptionsCount() >= (int) ceil($this->max_subscribers * 0.9);
     }
 }

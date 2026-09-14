@@ -18,6 +18,7 @@ class CustomerFactory extends Factory
             'email' => fake()->unique()->companyEmail(),
             'phone' => null,
             'metadata' => null,
+            'is_active' => true,
         ];
     }
 }

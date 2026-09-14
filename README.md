@@ -170,6 +170,17 @@ php artisan billing:generate-invoices
 7. **`/api/*` always renders errors as JSON**, via `shouldRenderJsonWhen()`, rather than trusting the caller's `Accept` header.
 8. **Seed data lives in one place** (`DemoData::merchants()`); every seeder loops over it instead of hardcoding a merchant lookup. `ApiCredentialSeeder`/`InvoiceSeeder` needed no loop at all — they already operate on "every customer" / "every active subscription".
 
+## Subscription Lifecycle Guardrails
+
+Business rules enforced in the service layer so the system can't drift into an inconsistent state:
+
+- **Plan seat limit + 90% alert:** a plan can optionally set `max_subscribers`. `Plan::isNearSubscriberLimit()` flags it once active subscriptions reach 90% — shown as a banner on the Plans page and a highlighted count in the list.
+- **Plan edits can't strand existing subscribers:** `PlanService::update()` rejects lowering `max_subscribers` below the plan's current active subscriber count.
+- **Plans with any subscription (active or past) can't be deleted** — `PlanService::delete()` refuses so billing history/invoice line items never point at a deleted plan. Deactivate instead.
+- **Deleting a customer auto-cancels their active subscription first**, then deletes; if cancellation fails, the delete is refused rather than leaving an orphaned subscription.
+- **Deactivating a customer** (`is_active`) blocks portal login and API key use immediately, without touching their subscription record — reactivating restores access as-is.
+- **`SubscriptionService::cancel()`** is the single cancellation path: validates the subscription is active, updates status locally, and carries a `// TODO: Need to cancel subscription in Stripe` marker for when real payment-provider cancellation is added — no Stripe logic today.
+
 ## Assumptions Made
 
 - **1 API request = 1 usage unit.**
@@ -182,7 +193,7 @@ php artisan billing:generate-invoices
 ## Trade-offs Under Time Pressure
 
 - **Redis/Horizon not installed** — queue/cache/session use Laravel's `database` driver (brief allows this explicitly). The code is driver-agnostic; switching later is a `.env` change only.
-- **No Stripe integration** — not part of the brief's 8 functional requirements.
+- **No Stripe integration** — not part of the brief's 8 functional requirements. `SubscriptionService::cancel()` handles cancellation locally with a `TODO` marker for where Stripe's cancel call would go.
 - **No pagination yet** on customer/plan lists or dashboard queries — fine at demo scale, would need `->paginate()` at hundreds of customers.
 - **A simple `role` string column** instead of a permissions package — kept even after simplifying to one role, since it costs nothing to leave in place.
 - **Money uses a small static helper** (`App\Support\Money::format()`) rather than a full value-object.

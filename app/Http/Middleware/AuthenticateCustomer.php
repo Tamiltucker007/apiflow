@@ -13,7 +13,11 @@ class AuthenticateCustomer
     public function handle(Request $request, Closure $next): Response
     {
         if (! Auth::guard('customer')->check()) {
-            return redirect()->guest(route('login'));
+            // Only GET URLs are safe to "resume" after login — see
+            // AuthenticateAdmin for why POST/PUT/DELETE must not be stored.
+            return $request->isMethod('get')
+                ? redirect()->guest(route('login'))
+                : redirect()->to(route('login'));
         }
 
         Auth::shouldUse('customer');

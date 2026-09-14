@@ -21,7 +21,13 @@ class PlanController extends Controller
 
     public function index(Merchant $merchant): View
     {
-        return view('plans.index', ['merchant' => $merchant]);
+        $nearLimitPlans = Plan::query()
+            ->where('merchant_id', $merchant->id)
+            ->whereNotNull('max_subscribers')
+            ->get()
+            ->filter(fn (Plan $plan) => $plan->isNearSubscriberLimit());
+
+        return view('plans.index', ['merchant' => $merchant, 'nearLimitPlans' => $nearLimitPlans]);
     }
 
     public function data(Merchant $merchant): JsonResponse
@@ -31,6 +37,15 @@ class PlanController extends Controller
             ->addColumn('base_price', fn (Plan $plan) => Money::format($plan->base_price_cents, $plan->currency))
             ->addColumn('included_units_fmt', fn (Plan $plan) => number_format($plan->included_units))
             ->addColumn('overage_rate', fn (Plan $plan) => Money::format($plan->overage_rate_cents, $plan->currency).' / unit')
+            ->addColumn('subscribers', function (Plan $plan) {
+                if ($plan->max_subscribers === null) {
+                    return $plan->activeSubscriptionsCount().' / ∞';
+                }
+
+                $classes = $plan->isNearSubscriberLimit() ? 'text-amber-600 font-medium' : '';
+
+                return '<span class="'.$classes.'">'.$plan->activeSubscriptionsCount().' / '.$plan->max_subscribers.'</span>';
+            })
             ->addColumn('status_badge', function (Plan $plan) {
                 $classes = $plan->is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
 
@@ -59,7 +74,7 @@ class PlanController extends Controller
                     .'<button class="action-link action-danger">Delete</button></form>'
                     .'</div>';
             })
-            ->rawColumns(['status_badge', 'actions'])
+            ->rawColumns(['subscribers', 'status_badge', 'actions'])
             ->make(true);
     }
 

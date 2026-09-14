@@ -74,4 +74,22 @@ class AuthAndAccessTest extends TestCase
 
         $this->assertTrue($planFromB->fresh()->is_active);
     }
+
+    /**
+     * Reproduces a real bug: an expired session hitting a POST route (e.g.
+     * clicking Logout after the session died) used to get remembered as the
+     * "intended" URL and replayed via GET after the next login — a 405 on
+     * any POST/PUT/DELETE-only route like /admin/logout.
+     */
+    public function test_a_post_route_hit_with_an_expired_session_is_not_replayed_via_get_after_login(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $admin = User::factory()->for($merchant)->create(['password' => bcrypt('correct-password')]);
+
+        $this->post('/admin/logout')
+            ->assertRedirect('/admin/login');
+
+        $this->post('/admin/login', ['email' => $admin->email, 'password' => 'correct-password'])
+            ->assertRedirect(route('admin.dashboard', $merchant));
+    }
 }

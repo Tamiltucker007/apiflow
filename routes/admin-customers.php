@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('customers/data', [CustomerController::class, 'data'])->name('customers.data');
 
 Route::resource('customers', CustomerController::class);
+Route::put('customers/{customer}/toggle', [CustomerController::class, 'toggle'])->name('customers.toggle');
 
 Route::post('customers/{customer}/api-keys', [ApiCredentialController::class, 'store'])->name('customers.api-keys.store');
 Route::delete('customers/{customer}/api-keys/{credential}', [ApiCredentialController::class, 'destroy'])->name('customers.api-keys.destroy');

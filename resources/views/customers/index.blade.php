@@ -18,6 +18,7 @@
                     <th class="px-4 py-3">Email</th>
                     <th class="px-4 py-3">Phone</th>
                     <th class="px-4 py-3">Registered</th>
+                    <th class="px-4 py-3">Status</th>
                     <th class="px-4 py-3 text-right">Actions</th>
                 </tr>
             </thead>
@@ -34,6 +35,7 @@
                     { data: 'email', className: 'px-4 py-3' },
                     { data: 'phone_fmt', className: 'px-4 py-3 text-gray-500', searchable: false, orderable: false },
                     { data: 'registered', className: 'px-4 py-3 text-gray-500', searchable: false, orderable: false },
+                    { data: 'status_badge', className: 'px-4 py-3', searchable: false, orderable: false },
                     { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },
                 ];
 

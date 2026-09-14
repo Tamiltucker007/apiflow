@@ -12,6 +12,11 @@
             'icon' => 'text-red-500',
             'path' => 'M12 8v4.5M12 15.5h.01',
         ],
+        'warning' => [
+            'classes' => 'bg-amber-50 border-amber-500 text-amber-800',
+            'icon' => 'text-amber-500',
+            'path' => 'M12 8v4.5M12 15.5h.01',
+        ],
     ];
     $variant = $variants[$type] ?? $variants['error'];
 @endphp

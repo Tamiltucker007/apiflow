@@ -24,6 +24,9 @@
                 <x-input label="Included Units" name="included_units" type="number" value="{{ old('included_units') }}" min="0" required />
 
                 <x-input label="Overage Rate (cents / unit)" name="overage_rate_cents" type="number" value="{{ old('overage_rate_cents') }}" min="0" required />
+
+                <x-input label="Max Subscribers (optional)" name="max_subscribers" type="number" value="{{ old('max_subscribers') }}" min="1"
+                    hint="Leave blank for unlimited" />
             </div>
 
             <button type="submit" class="mt-6 bg-indigo-600 text-white text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition">

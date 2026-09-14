@@ -25,6 +25,7 @@ class PlanFactory extends Factory
             'billing_cycle' => BillingCycle::Monthly,
             'included_units' => fake()->numberBetween(1000, 100000),
             'overage_rate_cents' => fake()->numberBetween(5, 50),
+            'max_subscribers' => null,
             'is_active' => true,
         ];
     }

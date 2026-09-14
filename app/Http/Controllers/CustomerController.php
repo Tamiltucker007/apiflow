@@ -37,12 +37,26 @@ class CustomerController extends Controller
             })
             ->addColumn('phone_fmt', fn (Customer $customer) => $customer->phone ?? '—')
             ->addColumn('registered', fn (Customer $customer) => $customer->created_at->format('d M Y'))
+            ->addColumn('status_badge', function (Customer $customer) {
+                $classes = $customer->is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500';
+
+                return '<span class="px-2 py-0.5 rounded text-xs '.$classes.'">'.($customer->is_active ? 'Active' : 'Inactive').'</span>';
+            })
             ->addColumn('actions', function (Customer $customer) use ($merchant) {
                 $editUrl = route('admin.customers.edit', [$merchant, $customer]);
+                $toggleUrl = route('admin.customers.toggle', [$merchant, $customer]);
                 $destroyUrl = route('admin.customers.destroy', [$merchant, $customer]);
+                $toggleLabel = $customer->is_active ? 'Deactivate' : 'Activate';
+
+                $toggleConfirm = $customer->is_active
+                    ? ' data-confirm="'.e("Deactivate {$customer->name}? They won't be able to log in or use their API keys until reactivated.").'"'
+                        .' data-confirm-title="Deactivate Customer" data-confirm-variant="warning" data-confirm-action="Deactivate"'
+                    : '';
 
                 return '<div class="flex items-center justify-end gap-1">'
                     .'<a href="'.$editUrl.'" class="action-link action-edit">Edit</a>'
+                    .'<form method="POST" action="'.$toggleUrl.'"'.$toggleConfirm.'>'.csrf_field().method_field('PUT')
+                    .'<button class="action-link'.($customer->is_active ? '' : ' action-edit').'">'.$toggleLabel.'</button></form>'
                     .'<form method="POST" action="'.$destroyUrl.'"'
                         .' data-confirm="'.e("Delete {$customer->name}? This cannot be undone.").'"'
                         .' data-confirm-title="Delete Customer" data-confirm-variant="danger" data-confirm-action="Delete">'.csrf_field().method_field('DELETE')
@@ -51,7 +65,7 @@ class CustomerController extends Controller
             })
             ->filterColumn('name_link', fn ($query, $keyword) => $query->where('customers.name', 'like', "%{$keyword}%"))
             ->orderColumn('name_link', 'name $1')
-            ->rawColumns(['name_link', 'actions'])
+            ->rawColumns(['name_link', 'status_badge', 'actions'])
             ->make(true);
     }
 
@@ -104,6 +118,16 @@ class CustomerController extends Controller
 
         return redirect()->route('admin.customers.index', $merchant)
             ->with('status', 'Customer deleted.');
+    }
+
+    public function toggle(Merchant $merchant, Customer $customer): RedirectResponse
+    {
+        $this->ensureBelongsToMerchant($customer, $merchant);
+
+        $this->customers->toggleActive($customer);
+
+        return redirect()->route('admin.customers.index', $merchant)
+            ->with('status', $customer->is_active ? 'Customer activated.' : 'Customer deactivated.');
     }
 
     /**

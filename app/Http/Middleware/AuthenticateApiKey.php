@@ -24,6 +24,10 @@ class AuthenticateApiKey
             return response()->json(['error' => 'Invalid or revoked API key.'], 401);
         }
 
+        if (! $credential->customer->is_active) {
+            return response()->json(['error' => 'This account has been deactivated.'], 403);
+        }
+
         app(MerchantContext::class)->set($credential->merchant);
 
         $request->attributes->set('apiCredential', $credential);

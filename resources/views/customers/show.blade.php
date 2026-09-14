@@ -38,6 +38,35 @@
     @endif
 
     <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-sm font-semibold text-gray-700">Account Status</h2>
+                <p class="text-xs text-gray-500 mt-1">
+                    Status:
+                    <span class="px-2 py-0.5 rounded text-xs font-medium {{ $customer->is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' }}">
+                        {{ $customer->is_active ? 'Active' : 'Inactive' }}
+                    </span>
+                    @unless ($customer->is_active)
+                        <span class="text-gray-400">— login and API access are blocked until reactivated.</span>
+                    @endunless
+                </p>
+            </div>
+
+            <form method="POST" action="{{ route('admin.customers.toggle', [$merchant, $customer]) }}"
+                @if ($customer->is_active)
+                    data-confirm="Deactivate {{ $customer->name }}? They won't be able to log in or use their API keys until reactivated."
+                    data-confirm-title="Deactivate Customer" data-confirm-variant="warning" data-confirm-action="Deactivate"
+                @endif>
+                @csrf
+                @method('PUT')
+                <button type="submit" class="bg-white border border-gray-300 text-gray-700 text-sm px-3 py-2 rounded-lg hover:bg-gray-50">
+                    {{ $customer->is_active ? 'Deactivate' : 'Activate' }}
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
         <div class="flex items-center justify-between mb-1">
             <div>
                 <h2 class="text-sm font-semibold text-gray-700">Customer Portal Access</h2>

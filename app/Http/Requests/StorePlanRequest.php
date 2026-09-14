@@ -20,6 +20,7 @@ class StorePlanRequest extends FormRequest
             'billing_cycle' => ['required', 'in:monthly,quarterly,yearly'],
             'included_units' => ['required', 'integer', 'min:0'],
             'overage_rate_cents' => ['required', 'integer', 'min:0'],
+            'max_subscribers' => ['nullable', 'integer', 'min:1'],
         ];
     }
 }

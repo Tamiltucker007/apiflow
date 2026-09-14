@@ -25,6 +25,9 @@
                 <x-input label="Included Units" name="included_units" type="number" value="{{ old('included_units', $plan->included_units) }}" min="0" required />
 
                 <x-input label="Overage Rate (cents / unit)" name="overage_rate_cents" type="number" value="{{ old('overage_rate_cents', $plan->overage_rate_cents) }}" min="0" required />
+
+                <x-input label="Max Subscribers (optional)" name="max_subscribers" type="number" value="{{ old('max_subscribers', $plan->max_subscribers) }}" min="1"
+                    hint="Leave blank for unlimited. Currently {{ $plan->activeSubscriptionsCount() }} active." />
             </div>
 
             <p class="text-xs text-gray-400 mt-4">

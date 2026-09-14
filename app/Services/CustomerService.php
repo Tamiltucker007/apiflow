@@ -9,6 +9,8 @@ use Illuminate\Validation\ValidationException;
 
 class CustomerService
 {
+    public function __construct(private SubscriptionService $subscriptions) {}
+
     public function create(Merchant $merchant, array $data): Customer
     {
         return Customer::create([
@@ -31,20 +33,38 @@ class CustomerService
     }
 
     /**
-     * Soft-deletes a customer. Their subscriptions, invoices, and API
-     * credentials are untouched — a customer_id can still resolve them,
-     * it's just hidden from the default customer list. Refuses while an
-     * active subscription exists so billing keeps a live customer to bill.
+     * Soft-deletes a customer. An active subscription is cancelled first
+     * (so nothing keeps billing a deleted customer); if that cancellation
+     * fails, the delete is refused rather than leaving an orphaned state.
+     * Invoices and API credentials are left untouched either way.
      */
     public function delete(Customer $customer): void
     {
-        if ($customer->activeSubscription()->exists()) {
-            throw ValidationException::withMessages([
-                'customer' => 'This customer has an active subscription and cannot be deleted. Cancel it first.',
-            ]);
+        $active = $customer->activeSubscription;
+
+        if ($active) {
+            try {
+                $this->subscriptions->cancel($active);
+            } catch (ValidationException) {
+                throw ValidationException::withMessages([
+                    'customer' => "This customer's active subscription could not be cancelled, so the account cannot be deleted.",
+                ]);
+            }
         }
 
         $customer->delete();
+    }
+
+    /**
+     * Toggles is_active. Blocks portal login and API access (see
+     * AuthenticateApiKey and portal LoginController) without touching the
+     * underlying subscription — reactivating restores access as-is.
+     */
+    public function toggleActive(Customer $customer): Customer
+    {
+        $customer->update(['is_active' => ! $customer->is_active]);
+
+        return $customer;
     }
 
     /**

@@ -35,6 +35,16 @@ class LoginController extends Controller
         RateLimiter::clear($request->throttleKey());
         $request->session()->regenerate();
 
+        $customer = Auth::guard('customer')->user();
+
+        if (! $customer->is_active) {
+            Auth::guard('customer')->logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'This account has been deactivated.',
+            ]);
+        }
+
         return redirect()->intended(route('dashboard'));
     }
 

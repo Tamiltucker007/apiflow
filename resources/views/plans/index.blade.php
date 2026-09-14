@@ -9,6 +9,12 @@
         <x-alert class="mb-6">{{ $errors->first() }}</x-alert>
     @endif
 
+    @foreach ($nearLimitPlans as $plan)
+        <x-alert type="warning" class="mb-3">
+            <strong>{{ $plan->name }}</strong> is at {{ $plan->activeSubscriptionsCount() }} of {{ $plan->max_subscribers }} subscribers — nearing its limit.
+        </x-alert>
+    @endforeach
+
     <div class="bg-white rounded-lg shadow overflow-x-auto pt-4 pb-4">
         <table id="plans-table" class="w-full text-sm text-left">
             <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
@@ -19,6 +25,7 @@
                     <th class="px-4 py-3">Base Price</th>
                     <th class="px-4 py-3">Included Units</th>
                     <th class="px-4 py-3">Overage Rate</th>
+                    <th class="px-4 py-3">Subscribers</th>
                     <th class="px-4 py-3">Status</th>
                     <th class="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -37,6 +44,7 @@
                     { data: 'base_price', className: 'px-4 py-3', searchable: false, orderable: false },
                     { data: 'included_units_fmt', className: 'px-4 py-3', searchable: false, orderable: false },
                     { data: 'overage_rate', className: 'px-4 py-3', searchable: false, orderable: false },
+                    { data: 'subscribers', className: 'px-4 py-3', searchable: false, orderable: false },
                     { data: 'status_badge', className: 'px-4 py-3', searchable: false, orderable: false },
                     { data: 'actions', className: 'px-4 py-3 text-right', searchable: false, orderable: false },
                 ];
