@@ -11,7 +11,7 @@ class CustomerSeeder extends Seeder
 {
     public function run(): void
     {
-        $customers = new CustomerService;
+        $customers = app(CustomerService::class);
 
         foreach (DemoData::merchants() as $slug => $data) {
             $merchant = Merchant::where('slug', $slug)->firstOrFail();
