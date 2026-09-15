@@ -27,7 +27,13 @@
                             <x-portal.invoice-status :status="$invoice->status" />
                         </td>
                         <td class="px-5 py-3 text-right font-medium text-gray-900">{{ \App\Support\Money::format($invoice->total_amount_cents, $invoice->currency) }}</td>
-                        <td class="px-5 py-3 text-right">
+                        <td class="px-5 py-3 text-right whitespace-nowrap">
+                            @if ($invoice->status === \App\Enums\InvoiceStatus::Pending)
+                                <form method="POST" action="{{ route('invoices.pay', $invoice) }}" class="inline">
+                                    @csrf
+                                    <button type="submit" class="text-xs font-medium text-emerald-600 hover:underline mr-3">Pay Now</button>
+                                </form>
+                            @endif
                             <a href="{{ route('invoices.download', $invoice) }}" class="text-xs hover:underline" style="color: var(--brand-from)">Download</a>
                         </td>
                     </tr>

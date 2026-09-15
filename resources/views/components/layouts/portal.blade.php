@@ -1,3 +1,5 @@
+@props(['title' => null, 'hideNav' => false])
+
 @php
     $portalCustomer = auth('customer')->user();
     $portalMerchant = $portalCustomer->merchant;
@@ -71,17 +73,24 @@
             </details>
         </div>
 
-        <nav class="flex items-center gap-1 overflow-x-auto pb-2.5">
-            {!! $portalNavLink('dashboard', route('dashboard'), 'Dashboard', 'M3 8.5 10 3l7 5.5V17a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1V8.5Z') !!}
-            {!! $portalNavLink('subscription', route('subscription'), 'Subscription', 'M4 4h6l7 7-6.5 6.5-7-7V4Z M7.5 7.5h.01') !!}
-            {!! $portalNavLink('usage', route('usage'), 'Usage Details', 'M3 17V9M8 17V3M13 17v-6M18 17v-3') !!}
-            {!! $portalNavLink('invoices.*', route('invoices.index'), 'Invoices', 'M6 3h8l2 2v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM7.5 8h5M7.5 11h5M7.5 14h3') !!}
-        </nav>
+        @unless ($hideNav)
+            <nav class="flex items-center gap-1 overflow-x-auto pb-2.5">
+                {!! $portalNavLink('dashboard', route('dashboard'), 'Dashboard', 'M3 8.5 10 3l7 5.5V17a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1V8.5Z') !!}
+                {!! $portalNavLink('subscription', route('subscription'), 'Subscription', 'M4 4h6l7 7-6.5 6.5-7-7V4Z M7.5 7.5h.01') !!}
+                {!! $portalNavLink('subscription.history', route('subscription.history'), 'History', 'M10 5.5V10l3 2M17 10a7 7 0 1 1-2.05-4.95') !!}
+                {!! $portalNavLink('usage', route('usage'), 'Usage Details', 'M3 17V9M8 17V3M13 17v-6M18 17v-3') !!}
+                {!! $portalNavLink('invoices.*', route('invoices.index'), 'Invoices', 'M6 3h8l2 2v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM7.5 8h5M7.5 11h5M7.5 14h3') !!}
+            </nav>
+        @endunless
     </header>
 
     <main class="p-4 sm:p-6">
         @if (session('status'))
             <x-alert type="success" class="mb-4">{{ session('status') }}</x-alert>
+        @endif
+
+        @if (session('error'))
+            <x-alert type="error" class="mb-4">{{ session('error') }}</x-alert>
         @endif
 
         {{ $slot }}

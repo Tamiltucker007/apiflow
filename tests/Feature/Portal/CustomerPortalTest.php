@@ -100,6 +100,68 @@ class CustomerPortalTest extends TestCase
         $response->assertNotFound();
     }
 
+    public function test_a_customer_can_pay_their_own_pending_invoice(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $plan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Monthly]);
+        $customer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+        $subscription = Subscription::factory()->for($merchant)->create([
+            'customer_id' => $customer->id,
+            'plan_id' => $plan->id,
+            'current_period_start' => '2026-01-01',
+            'current_period_end' => '2026-01-31',
+        ]);
+        $invoice = app(BillingService::class)->generateInvoice($subscription);
+
+        $response = $this->actingAs($customer, 'customer')->post(route('invoices.pay', $invoice));
+
+        $response->assertRedirect(route('invoices.show', $invoice));
+        $response->assertSessionHas('status');
+        $invoice->refresh();
+        $this->assertSame(\App\Enums\InvoiceStatus::Paid, $invoice->status);
+        $this->assertNotNull($invoice->paid_at);
+        $this->assertNotNull($invoice->stripe_payment_intent_id);
+    }
+
+    public function test_a_customer_cannot_pay_another_customers_invoice(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $plan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Monthly]);
+        $owner = Customer::factory()->for($merchant)->create();
+        $ownerSubscription = Subscription::factory()->for($merchant)->create([
+            'customer_id' => $owner->id,
+            'plan_id' => $plan->id,
+            'current_period_start' => '2026-01-01',
+            'current_period_end' => '2026-01-31',
+        ]);
+        $invoice = app(BillingService::class)->generateInvoice($ownerSubscription);
+        $otherCustomer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+
+        $response = $this->actingAs($otherCustomer, 'customer')->post(route('invoices.pay', $invoice));
+
+        $response->assertNotFound();
+        $this->assertSame(\App\Enums\InvoiceStatus::Pending, $invoice->fresh()->status);
+    }
+
+    public function test_a_customer_cannot_pay_an_already_paid_invoice(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $plan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Monthly]);
+        $customer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+        $subscription = Subscription::factory()->for($merchant)->create([
+            'customer_id' => $customer->id,
+            'plan_id' => $plan->id,
+            'current_period_start' => '2026-01-01',
+            'current_period_end' => '2026-01-31',
+        ]);
+        $invoice = app(BillingService::class)->generateInvoice($subscription);
+        $invoice->update(['status' => \App\Enums\InvoiceStatus::Paid, 'paid_at' => now()]);
+
+        $response = $this->actingAs($customer, 'customer')->post(route('invoices.pay', $invoice));
+
+        $response->assertNotFound();
+    }
+
     public function test_the_dashboard_shows_usage_against_the_active_plan(): void
     {
         $merchant = Merchant::factory()->create();
@@ -128,6 +190,35 @@ class CustomerPortalTest extends TestCase
         $response->assertOk();
         $response->assertSee('Growth');
         $response->assertSee('400');
+    }
+
+    public function test_a_customer_can_simulate_their_own_usage(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $plan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Monthly]);
+        $customer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+        Subscription::factory()->for($merchant)->create([
+            'customer_id' => $customer->id,
+            'plan_id' => $plan->id,
+            'current_period_start' => now()->startOfMonth(),
+            'current_period_end' => now()->endOfMonth(),
+        ]);
+
+        $response = $this->actingAs($customer, 'customer')->post(route('dashboard.simulate-usage'));
+
+        $response->assertRedirect(route('dashboard'));
+        $response->assertSessionHas('status');
+        $this->assertTrue(DailyUsage::where('customer_id', $customer->id)->exists());
+    }
+
+    public function test_simulating_usage_without_a_subscription_shows_an_error(): void
+    {
+        $customer = Customer::factory()->for(Merchant::factory())->create(['password' => bcrypt('secret')]);
+
+        $response = $this->actingAs($customer, 'customer')->post(route('dashboard.simulate-usage'));
+
+        $response->assertRedirect(route('dashboard'));
+        $response->assertSessionHas('error');
     }
 
     public function test_a_merchant_admin_can_issue_a_portal_password_and_the_customer_can_then_log_in(): void
@@ -228,6 +319,57 @@ class CustomerPortalTest extends TestCase
 
         $response->assertSessionHasErrors('plan_id');
         $this->assertSame($currentPlan->id, $subscription->fresh()->plan_id);
+    }
+
+    public function test_a_customer_cannot_switch_to_a_different_billing_cycle_plan(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $monthlyPlan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Monthly]);
+        $quarterlyPlan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Quarterly]);
+        $customer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+        $subscription = Subscription::factory()->for($merchant)->create([
+            'customer_id' => $customer->id,
+            'plan_id' => $monthlyPlan->id,
+        ]);
+
+        $response = $this->actingAs($customer, 'customer')
+            ->put(route('subscription.change-plan'), ['plan_id' => $quarterlyPlan->id]);
+
+        $response->assertSessionHasErrors('plan_id');
+        $this->assertSame($monthlyPlan->id, $subscription->fresh()->plan_id);
+    }
+
+    public function test_the_subscription_history_page_lists_past_and_current_subscriptions(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $oldPlan = Plan::factory()->for($merchant)->create(['name' => 'Starter']);
+        $newPlan = Plan::factory()->for($merchant)->create(['name' => 'Growth']);
+        $customer = Customer::factory()->for($merchant)->create(['password' => bcrypt('secret')]);
+
+        $cancelled = Subscription::factory()->for($merchant)->create([
+            'customer_id' => $customer->id,
+            'plan_id' => $oldPlan->id,
+            'status' => \App\Enums\SubscriptionStatus::Cancelled,
+            'cancelled_at' => now()->subMonth(),
+        ]);
+        $active = Subscription::factory()->for($merchant)->create([
+            'customer_id' => $customer->id,
+            'plan_id' => $newPlan->id,
+        ]);
+        \App\Models\SubscriptionPlanChange::create([
+            'subscription_id' => $active->id,
+            'old_plan_id' => $oldPlan->id,
+            'new_plan_id' => $newPlan->id,
+            'changed_at' => now(),
+            'effective_date' => now()->toDateString(),
+        ]);
+
+        $response = $this->actingAs($customer, 'customer')->get(route('subscription.history'));
+
+        $response->assertOk();
+        $response->assertSee('Starter');
+        $response->assertSee('Growth');
+        $response->assertSee('Cancelled');
     }
 
     public function test_the_usage_page_shows_usage_details_and_trend(): void

@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Enums\BillingCycle;
 use App\Enums\SubscriptionStatus;
 use App\Models\Customer;
+use App\Models\Invoice;
 use App\Models\Merchant;
 use App\Models\Plan;
 use App\Models\Subscription;
+use App\Models\User;
 use App\Services\ApiCredentialService;
 use App\Services\CustomerService;
 use App\Services\PlanService;
@@ -141,5 +144,50 @@ class SubscriptionBusinessRulesTest extends TestCase
         $this->expectException(ValidationException::class);
 
         app(SubscriptionService::class)->cancel($subscription);
+    }
+
+    public function test_cancelling_a_subscription_bills_a_final_invoice_for_days_used(): void
+    {
+        $subscription = Subscription::factory()->create([
+            'status' => SubscriptionStatus::Active,
+            'current_period_start' => now()->startOfMonth(),
+            'current_period_end' => now()->endOfMonth(),
+        ]);
+
+        app(SubscriptionService::class)->cancel($subscription);
+
+        $invoice = Invoice::where('subscription_id', $subscription->id)->first();
+        $this->assertNotNull($invoice);
+        $this->assertSame(now()->startOfMonth()->toDateString(), $invoice->period_start->toDateString());
+        $this->assertSame(now()->toDateString(), $invoice->period_end->toDateString());
+    }
+
+    public function test_cancelling_a_subscription_already_invoiced_this_cycle_does_not_double_bill(): void
+    {
+        $subscription = Subscription::factory()->create([
+            'status' => SubscriptionStatus::Active,
+            'current_period_start' => now()->startOfMonth(),
+            'current_period_end' => now()->endOfMonth(),
+        ]);
+        app(\App\Services\BillingService::class)->generateInvoice($subscription);
+
+        app(SubscriptionService::class)->cancel($subscription);
+
+        $this->assertSame(1, Invoice::where('subscription_id', $subscription->id)->count());
+    }
+
+    public function test_an_admin_cannot_switch_a_subscription_to_a_different_billing_cycle_plan(): void
+    {
+        $merchant = Merchant::factory()->create();
+        $admin = User::factory()->for($merchant)->create();
+        $monthlyPlan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Monthly]);
+        $quarterlyPlan = Plan::factory()->for($merchant)->create(['billing_cycle' => BillingCycle::Quarterly]);
+        $subscription = Subscription::factory()->for($merchant)->for($monthlyPlan)->create();
+
+        $response = $this->actingAs($admin)
+            ->put(route('admin.subscriptions.change-plan', [$merchant, $subscription]), ['plan_id' => $quarterlyPlan->id]);
+
+        $response->assertSessionHasErrors('plan_id');
+        $this->assertSame($monthlyPlan->id, $subscription->fresh()->plan_id);
     }
 }

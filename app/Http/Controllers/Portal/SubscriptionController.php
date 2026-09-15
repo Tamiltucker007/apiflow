@@ -31,8 +31,10 @@ class SubscriptionController extends Controller
         /** @var Customer $customer */
         $customer = Auth::guard('customer')->user();
 
+        // Same-billing-cycle plans only — see admin SubscriptionController::data().
         $otherPlans = $customer->merchant->plans()->active()
             ->where('id', '!=', $subscription->plan_id)
+            ->where('billing_cycle', $subscription->plan->billing_cycle)
             ->orderBy('base_price_cents')
             ->get();
 
@@ -56,6 +58,19 @@ class SubscriptionController extends Controller
         $this->subscriptions->changePlan($subscription, $newPlan);
 
         return redirect()->route('subscription')->with('status', "Plan changed to {$newPlan->name}, effective today.");
+    }
+
+    public function history(): View
+    {
+        /** @var Customer $customer */
+        $customer = Auth::guard('customer')->user();
+
+        $subscriptions = $customer->subscriptions()
+            ->with(['plan', 'planChanges.oldPlan', 'planChanges.newPlan'])
+            ->orderByDesc('started_at')
+            ->get();
+
+        return view('portal.subscription-history', ['subscriptions' => $subscriptions]);
     }
 
     public function usage(): View|RedirectResponse

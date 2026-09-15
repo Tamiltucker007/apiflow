@@ -6,7 +6,7 @@
 
 <x-layouts.portal title="Usage Details">
     <h1 class="text-xl font-semibold text-gray-900 mb-1">Usage Details</h1>
-    <p class="text-sm text-gray-500 mb-6">How much of this cycle's allowance you've used so far.</p>
+    <p class="text-sm text-gray-500 mb-6">How much of this cycle's allowance you've used so far. <span class="text-gray-400">(1 unit = 1 API call)</span></p>
 
     @if ($percentage >= 100)
         <x-alert type="error" class="mb-6">

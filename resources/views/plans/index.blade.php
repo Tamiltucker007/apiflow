@@ -23,7 +23,7 @@
                     <th class="px-4 py-3">Name</th>
                     <th class="px-4 py-3">Billing Cycle</th>
                     <th class="px-4 py-3">Base Price</th>
-                    <th class="px-4 py-3">Included Units</th>
+                    <th class="px-4 py-3" title="1 unit = 1 API call">Included Units</th>
                     <th class="px-4 py-3">Overage Rate</th>
                     <th class="px-4 py-3">Subscribers</th>
                     <th class="px-4 py-3">Status</th>

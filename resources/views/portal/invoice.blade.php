@@ -10,6 +10,12 @@
         </div>
         <div class="flex items-center gap-3">
             <x-portal.invoice-status :status="$invoice->status" />
+            @if ($invoice->status === \App\Enums\InvoiceStatus::Pending)
+                <form method="POST" action="{{ route('invoices.pay', $invoice) }}">
+                    @csrf
+                    <button type="submit" class="bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700">Pay Now</button>
+                </form>
+            @endif
             <a href="{{ route('invoices.download', $invoice) }}"
                 class="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700">Download PDF</a>
         </div>

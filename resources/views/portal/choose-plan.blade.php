@@ -4,10 +4,12 @@
     $popularIndex = $plans->count() === 3 ? 1 : null;
 @endphp
 
-<x-layouts.portal title="Choose a Plan">
-    <div class="max-w-5xl">
-        <h1 class="text-2xl font-semibold text-gray-900 mb-1">Choose your plan</h1>
-        <p class="text-sm text-gray-500 mb-8">Pick the plan that fits your usage. You can switch anytime once you're subscribed.</p>
+<x-layouts.portal title="Choose a Plan" :hide-nav="true">
+    <div class="max-w-5xl mx-auto">
+        <div class="text-center mb-8">
+            <h1 class="text-2xl font-semibold text-gray-900 mb-1">Choose your plan</h1>
+            <p class="text-sm text-gray-500">Pick the plan that fits your usage. You can switch anytime once you're subscribed.</p>
+        </div>
 
         @if ($errors->any())
             <x-alert type="error" class="mb-6">{{ $errors->first() }}</x-alert>
@@ -16,17 +18,17 @@
         <div class="grid sm:grid-cols-3 gap-6 items-start">
             @forelse ($plans as $index => $plan)
                 @php($isPopular = $index === $popularIndex)
-                <div class="relative bg-white rounded-2xl border p-6 flex flex-col transition hover:shadow-lg hover:-translate-y-0.5
-                    {{ $isPopular ? 'border-indigo-500 shadow-lg sm:scale-[1.03]' : 'border-gray-100 shadow-sm' }}">
+                <div data-plan-card @if ($isPopular) data-plan-default-selected @endif
+                    class="plan-card relative bg-white rounded-2xl border-2 p-6 flex flex-col transition cursor-pointer hover:shadow-lg hover:-translate-y-0.5">
                     @if ($isPopular)
                         <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow whitespace-nowrap">
                             Most Popular
                         </span>
                     @endif
 
-                    <div class="w-10 h-10 rounded-lg flex items-center justify-center mb-4 {{ $isPopular ? 'bg-indigo-600' : 'bg-indigo-50' }}">
+                    <div data-plan-icon class="w-10 h-10 rounded-lg flex items-center justify-center mb-4 transition-colors">
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                            <path d="M4 10.5l4 4 8-9" stroke="{{ $isPopular ? 'white' : '#4f46e5' }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path data-plan-icon-path d="M4 10.5l4 4 8-9" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </div>
 
@@ -51,10 +53,10 @@
                         </li>
                     </ul>
 
-                    <form method="POST" action="{{ route('plans.choose.store') }}" class="mt-6">
+                    <form method="POST" action="{{ route('plans.choose.store') }}" class="mt-6" data-subscribe-form>
                         @csrf
                         <input type="hidden" name="plan_id" value="{{ $plan->id }}">
-                        <button type="submit" class="w-full text-white text-sm font-medium py-2.5 rounded-lg transition
+                        <button type="submit" data-subscribe-button data-label="Subscribe to {{ $plan->name }}" class="w-full text-white text-sm font-medium py-2.5 rounded-lg transition disabled:opacity-60
                             {{ $isPopular ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-900 hover:bg-gray-800' }}">
                             Subscribe to {{ $plan->name }}
                         </button>
@@ -67,4 +69,29 @@
             @endforelse
         </div>
     </div>
+
+    @push('scripts')
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                document.querySelectorAll('[data-subscribe-form]').forEach(function (form) {
+                    form.addEventListener('submit', function () {
+                        const button = form.querySelector('[data-subscribe-button]');
+                        button.disabled = true;
+                        button.textContent = 'Subscribing…';
+                    });
+                });
+
+                const cards = document.querySelectorAll('[data-plan-card]');
+
+                function select(card) {
+                    cards.forEach((c) => c.classList.toggle('is-selected', c === card));
+                }
+
+                cards.forEach((card) => card.addEventListener('click', () => select(card)));
+
+                const initiallySelected = document.querySelector('[data-plan-default-selected]') || cards[0];
+                if (initiallySelected) select(initiallySelected);
+            });
+        </script>
+    @endpush
 </x-layouts.portal>

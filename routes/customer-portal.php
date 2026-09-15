@@ -24,14 +24,17 @@ Route::middleware('guest.customer')->group(function () {
 Route::middleware('auth.customer')->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::post('/dashboard/simulate-usage', [DashboardController::class, 'simulateUsage'])->name('dashboard.simulate-usage');
     Route::get('/plans/choose', [PlanSelectionController::class, 'create'])->name('plans.choose');
     Route::post('/plans/choose', [PlanSelectionController::class, 'store'])->name('plans.choose.store');
     Route::get('/subscription', [SubscriptionController::class, 'show'])->name('subscription');
     Route::put('/subscription/change-plan', [SubscriptionController::class, 'changePlan'])->name('subscription.change-plan');
+    Route::get('/subscription/history', [SubscriptionController::class, 'history'])->name('subscription.history');
     Route::get('/usage', [SubscriptionController::class, 'usage'])->name('usage');
     Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('/invoices/{invoice}', [InvoiceController::class, 'show'])->name('invoices.show');
     Route::get('/invoices/{invoice}/download', [InvoiceController::class, 'download'])->name('invoices.download');
+    Route::post('/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->name('invoices.pay');
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
 });

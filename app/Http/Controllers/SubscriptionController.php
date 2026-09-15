@@ -56,7 +56,11 @@ class SubscriptionController extends Controller
                 $changeUrl = route('admin.subscriptions.change-plan', [$merchant, $s]);
                 $cancelUrl = route('admin.subscriptions.cancel', [$merchant, $s]);
 
-                $options = $plans->map(fn (Plan $plan) => '<option value="'.$plan->id.'"'.($plan->id === $s->plan_id ? ' selected' : '').'>'.e($plan->name).'</option>')->implode('');
+                // Only same-billing-cycle plans are offered — switching cycle
+                // length (e.g. monthly to quarterly) mid-cycle isn't supported
+                // yet, since proration assumes the period's own cycle length.
+                $options = $plans->where('billing_cycle', $s->plan->billing_cycle)
+                    ->map(fn (Plan $plan) => '<option value="'.$plan->id.'"'.($plan->id === $s->plan_id ? ' selected' : '').'>'.e($plan->name).'</option>')->implode('');
 
                 $changeConfirmTemplate = e("Change {$s->customer_name}'s plan to {value}? Usage before today stays billed at the old plan's rate, usage after at the new plan's rate.");
                 $cancelConfirm = e("Cancel {$s->customer_name}'s subscription immediately? They will stop being metered right away — this cannot be undone.");

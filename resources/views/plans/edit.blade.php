@@ -22,7 +22,8 @@
                 <x-input label="Base Price (cents)" name="base_price_cents" type="number" value="{{ old('base_price_cents', $plan->base_price_cents) }}" min="0" required
                     hint="e.g. 499900 = Rs 4,999.00" />
 
-                <x-input label="Included Units" name="included_units" type="number" value="{{ old('included_units', $plan->included_units) }}" min="0" required />
+                <x-input label="Included Units" name="included_units" type="number" value="{{ old('included_units', $plan->included_units) }}" min="0" required
+                    hint="1 unit = 1 API call" />
 
                 <x-input label="Overage Rate (cents / unit)" name="overage_rate_cents" type="number" value="{{ old('overage_rate_cents', $plan->overage_rate_cents) }}" min="0" required />
 

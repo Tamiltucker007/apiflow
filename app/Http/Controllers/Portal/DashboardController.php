@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Portal;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\AggregateUsageJob;
 use App\Models\Customer;
 use App\Services\SubscriptionUsageSnapshot;
+use App\Services\UsageService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -46,5 +49,30 @@ class DashboardController extends Controller
             'invoices' => $invoices,
             'usageTrend' => $this->usage->dailyTrend($subscription->id),
         ]);
+    }
+
+    /**
+     * Demo/dev helper: same trick as CustomerController::simulateUsage()
+     * (admin side), scoped to the logged-in customer instead of a route
+     * param — lets a self-service walkthrough show the usage -> billing
+     * flow without an admin tab or a real API client. Disabled in production.
+     */
+    public function simulateUsage(UsageService $usage): RedirectResponse
+    {
+        abort_if(app()->isProduction(), 404);
+
+        /** @var Customer $customer */
+        $customer = Auth::guard('customer')->user();
+
+        try {
+            $result = $usage->simulateUsage($customer);
+        } catch (ValidationException) {
+            return redirect()->route('dashboard')->with('error', 'No active subscription to simulate usage against.');
+        }
+
+        AggregateUsageJob::dispatchSync();
+
+        return redirect()->route('dashboard')
+            ->with('status', "Simulated {$result['total_units']} usage units across {$result['days']} day(s). Dashboard updated.");
     }
 }

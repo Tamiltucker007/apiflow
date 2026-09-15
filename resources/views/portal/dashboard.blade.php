@@ -9,17 +9,29 @@
 @endphp
 
 <x-layouts.portal title="Dashboard">
-    <div class="flex items-center gap-4 mb-8">
-        <div class="w-12 h-12 rounded-xl text-white flex items-center justify-center flex-shrink-0 shadow-sm"
-            style="background: linear-gradient(135deg, var(--brand-from), var(--brand-to))">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
+    <div class="flex items-center justify-between gap-4 mb-8">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl text-white flex items-center justify-center flex-shrink-0 shadow-sm"
+                style="background: linear-gradient(135deg, var(--brand-from), var(--brand-to))">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                    <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" stroke="white" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-semibold text-gray-900">Welcome, {{ $customer->name }}</h1>
+                <p class="text-sm text-gray-500">Here's your usage and billing for this cycle.</p>
+            </div>
         </div>
-        <div>
-            <h1 class="text-xl font-semibold text-gray-900">Welcome, {{ $customer->name }}</h1>
-            <p class="text-sm text-gray-500">Here's your usage and billing for this cycle.</p>
-        </div>
+
+        @unless (app()->isProduction())
+            <form method="POST" action="{{ route('dashboard.simulate-usage') }}" class="flex-shrink-0">
+                @csrf
+                <button type="submit" class="bg-white border border-gray-300 text-gray-700 text-sm px-3 py-2 rounded-lg hover:bg-gray-50"
+                    title="Backfills a week of usage against your own subscription — for demoing the usage-to-billing flow without a real API client">
+                    Simulate Usage (demo)
+                </button>
+            </form>
+        @endunless
     </div>
 
     @if ($percentage >= 100)
@@ -60,7 +72,7 @@
                         <path d="M3 17V9M8 17V3M13 17v-6M18 17v-3" stroke="{{ $usageColor }}" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </div>
-                <p class="text-xs text-gray-500 uppercase tracking-wide">Usage This Cycle</p>
+                <p class="text-xs text-gray-500 uppercase tracking-wide" title="1 unit = 1 API call">Usage This Cycle</p>
             </div>
             <p class="text-lg font-semibold text-gray-900">{{ number_format($usedUnits) }} <span class="text-sm font-normal text-gray-400">/ {{ number_format($plan->included_units) }} units</span></p>
             <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden mt-2.5">

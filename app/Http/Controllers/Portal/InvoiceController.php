@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Portal;
 
+use App\Enums\InvoiceStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Services\InvoicePdfService;
+use App\Services\PaymentService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -39,6 +42,24 @@ class InvoiceController extends Controller
         $this->authorizeInvoice($invoice);
 
         return $pdf->render($invoice)->download("{$invoice->invoice_number}.pdf");
+    }
+
+    public function pay(Invoice $invoice, PaymentService $payments): RedirectResponse
+    {
+        $this->authorizeInvoice($invoice);
+
+        abort_if($invoice->status !== InvoiceStatus::Pending, 404);
+
+        $result = $payments->charge($invoice);
+
+        $invoice->update([
+            'status' => $result['success'] ? InvoiceStatus::Paid : InvoiceStatus::Failed,
+            'paid_at' => $result['success'] ? now() : null,
+            'stripe_payment_intent_id' => $result['reference'],
+        ]);
+
+        return redirect()->route('invoices.show', $invoice)
+            ->with($result['success'] ? 'status' : 'error', $result['message']);
     }
 
     private function authorizeInvoice(Invoice $invoice): void

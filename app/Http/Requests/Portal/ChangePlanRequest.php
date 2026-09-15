@@ -18,12 +18,21 @@ class ChangePlanRequest extends FormRequest
     {
         /** @var Customer $customer */
         $customer = Auth::guard('customer')->user();
+        $currentPlan = $customer->activeSubscription?->plan;
 
+        $rule = Rule::exists('plans', 'id')->where('merchant_id', $customer->merchant_id)->where('is_active', true);
+
+        if ($currentPlan) {
+            $rule->where('billing_cycle', $currentPlan->billing_cycle->value);
+        }
+
+        return ['plan_id' => ['required', $rule]];
+    }
+
+    public function messages(): array
+    {
         return [
-            'plan_id' => [
-                'required',
-                Rule::exists('plans', 'id')->where('merchant_id', $customer->merchant_id)->where('is_active', true),
-            ],
+            'plan_id.exists' => 'You can only switch to a plan with the same billing interval right now — a full cycle-length change (e.g. monthly to quarterly) takes effect at the next renewal.',
         ];
     }
 }

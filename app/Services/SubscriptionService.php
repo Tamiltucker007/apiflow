@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\SubscriptionStatus;
 use App\Models\Customer;
+use App\Models\Invoice;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Models\SubscriptionPlanChange;
@@ -12,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 
 class SubscriptionService
 {
+    public function __construct(private BillingService $billing) {}
+
     public function subscribe(Customer $customer, Plan $plan): Subscription
     {
         $alreadySubscribed = Subscription::where('customer_id', $customer->id)
@@ -64,9 +67,12 @@ class SubscriptionService
     }
 
     /**
-     * Cancels a subscription effective immediately. Usage already recorded
-     * against it, and any invoices already generated, are untouched — this
-     * only stops it from being billed or renewed going forward.
+     * Cancels a subscription effective immediately. Bills a final invoice
+     * for the days actually used this cycle (period_start through today) —
+     * there's nothing to "refund" since the un-used remainder was never
+     * billed in the first place; this is the mirror of that. Skipped if the
+     * current cycle was already invoiced (e.g. admin generated it on-demand
+     * earlier), so a cancel never double-bills an overlapping range.
      */
     public function cancel(Subscription $subscription): Subscription
     {
@@ -74,6 +80,18 @@ class SubscriptionService
             throw ValidationException::withMessages([
                 'subscription' => 'This subscription is not active.',
             ]);
+        }
+
+        // whereDate() (not where()) since a date-cast column round-trips
+        // with a time component on some drivers (SQLite) — an exact string
+        // match against toDateString() would silently never hit.
+        $alreadyInvoicedThisCycle = Invoice::where('subscription_id', $subscription->id)
+            ->whereDate('period_start', $subscription->current_period_start->toDateString())
+            ->exists();
+
+        if (! $alreadyInvoicedThisCycle) {
+            $cancelledThrough = Carbon::today()->min($subscription->current_period_end);
+            $this->billing->generateInvoice($subscription, $subscription->current_period_start, $cancelledThrough);
         }
 
         // TODO: Need to cancel subscription in Stripe
